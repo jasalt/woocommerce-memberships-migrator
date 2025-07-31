@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "3465a8b0ff778b52888e984aad4cb70b",
+    "content-hash": "cdfd28ad349553079ed0dce120818eba",
     "packages": [
         {
             "name": "gacela-project/container",
@@ -234,6 +234,51 @@
                 }
             ],
             "time": "2024-12-01T12:00:18+00:00"
+        },
+        {
+            "name": "phel-lang/phel-pdo",
+            "version": "v0.0.6",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/phel-lang/phel-pdo.git",
+                "reference": "ff3849e361df5210a98b790b2fd191c414fb3715"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/phel-lang/phel-pdo/zipball/ff3849e361df5210a98b790b2fd191c414fb3715",
+                "reference": "ff3849e361df5210a98b790b2fd191c414fb3715",
+                "shasum": ""
+            },
+            "require": {
+                "phel-lang/phel-lang": ">=0.14",
+                "php": ">=8.2"
+            },
+            "type": "library",
+            "autoload": {
+                "psr-4": {
+                    "Phel\\PhelPdo\\": "src/"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "smeghead",
+                    "email": "smeghead7@gmail.com"
+                }
+            ],
+            "description": "phel-lang pdo wrapper library.",
+            "keywords": [
+                "pdo",
+                "phel"
+            ],
+            "support": {
+                "issues": "https://github.com/phel-lang/phel-pdo/issues",
+                "source": "https://github.com/phel-lang/phel-pdo/tree/v0.0.6"
+            },
+            "time": "2024-06-24T14:58:16+00:00"
         },
         {
             "name": "phpunit/php-timer",
@@ -1015,7 +1060,7 @@
     "platform": {
         "php": ">=8.2"
     },
-    "platform-dev": [],
+    "platform-dev": {},
     "platform-overrides": {
         "php": "8.2"
     },
