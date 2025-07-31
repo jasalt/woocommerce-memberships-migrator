@@ -1,7 +1,7 @@
 <?php
 /*
-Plugin Name: Phel Demo Plugin
-Description: Adds admin widget printing some content with Phel
+Plugin Name: WooCommerce Memberships Migrator
+Description: Migrate customer accounts and memberships from old site via MySQL connection to new site.
 Version: 0.1
 Author: Jarkko Saltiola
 Author URI: https://codeberg.org/jasalt
