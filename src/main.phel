@@ -1,0 +1,27 @@
+(ns phel-wp-plugin\main
+  (:require phel\html :refer [html]))
+
+(def posts (php/get_posts
+            (to-php-array {"post_type" "post"
+                           "numberposts" 2})))
+(defn current-user-name []
+  (-> (php/wp_get_current_user)
+      (php/-> user_login)))
+
+(defn phel-widget-content []
+  (println "Hello, World!")
+  (println "Your WordPress account name is: ")
+  (println (current-user-name))
+
+  (println (html [:div
+                  [:h2 "All Posts"]
+                  [:ul
+                   (for [item :in posts]
+                     [:li
+                      (php/-> item post_title) " "
+                      [:a {:href (php/get_permalink item)} "hyperlink"]])]])))
+
+(php/add_action "wp_dashboard_setup"
+                (fn [] (php/wp_add_dashboard_widget "phel-widget-id"
+                                                    "This is Phel content"
+                                                    phel-widget-content)))
