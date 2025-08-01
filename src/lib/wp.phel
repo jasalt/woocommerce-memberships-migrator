@@ -1,4 +1,4 @@
-(ns woodoo-pos-sync\lib\wp
+(ns woocommerce-memberships-migrator\lib\wp
   (:require phel\str :as str)
   (:require phel\pdo :as pdo)
   (:require phel\pdo\statement :as statement))

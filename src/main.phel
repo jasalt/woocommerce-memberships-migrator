@@ -1,5 +1,7 @@
-(ns phel-wp-plugin\main
-  (:require phel\html :refer [html]))
+(ns woocommerce-memberships-migrator\main
+  (:require phel\html :refer [html])
+  (:require woocommerce-memberships-migrator\lib\wp :as wp)
+  )
 
 (def posts (php/get_posts
             (to-php-array {"post_type" "post"
