@@ -7,13 +7,19 @@ WordPress plugin made with [Phel](https://phel-lang.org/) (functional Lisp-famil
 
 Tool "pulls" customer data via MySQL connection from (remote) source system using PDB, populating the (local) target system database using WP PHP API functions.
 
-Following information is required for PDO connection:
+Following variables are required for PDO connection and need to be set in `wp-config.php`:
 
-- `SOURCE_MYSQL_HOST`: IP or fqdn to MySQL server that is accessible over network
-- `SOURCE_MYSQL_USER`: database username
-- `SOURCE_MYSQL_PASSWORD` database password
-- `SOURCE_MYSQL_DB`: database name
-- `SOURCE_MYSQL_DB_PREFIX`: prefix (if not set, default `wp_` is expected)
+```
+// WooCommerce Memberships migration config
+define('SOURCE_MYSQL_HOST', '123');
+define('SOURCE_MYSQL_USER', 'asdf');
+define('SOURCE_MYSQL_PASSWORD', 'asdf');
+define('SOURCE_MYSQL_DB_NAME', 'asdf');
+define('SOURCE_MYSQL_DB_PREFIX', 'asdf');
+define('SOURCE_MYSQL_DB_CHARSET', 'asdf');
+define('SOURCE_MYSQL_DB_COLLATION', 'asdf');
+```
+
 
 ## User account importing
 

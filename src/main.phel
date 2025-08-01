@@ -1,29 +1,70 @@
 (ns woocommerce-memberships-migrator\main
-  (:require phel\html :refer [html])
+  (:require phel\pdo :as pdo)
   (:require woocommerce-memberships-migrator\lib\wp :as wp)
-  )
+  (:require phel\html :refer [html]))
 
-(def posts (php/get_posts
-            (to-php-array {"post_type" "post"
-                           "numberposts" 2})))
-(defn current-user-name []
-  (-> (php/wp_get_current_user)
-      (php/-> user_login)))
+#### Symbol function loosely after
+## - https://github.com/janet-lang/janet/blob/73334f3/src/core/corelib.c#L337
+## Also see:
+## - https://github.com/janet-lang/janet/blob/ddc122958be34a18edd754743851536b5a16a3cc/test/suite-symcache.janet#L24
+## - https://github.com/clojure/clojure/blob/master/src/clj/clojure/core.clj#L591
+## TODO PR
+(defn symbol
+  "Creates a symbol by concatenating the elements of `xs` together.
+   Returns the new symbol."
+  [& xs]
+  (php/:: \Phel\Lang\Symbol (create (apply str xs))))
 
-(defn phel-widget-content []
-  (println "Hello, World!")
-  (println "Your WordPress account name is: ")
-  (println (current-user-name))
+## Test
+(comment
+  (= (symbol "abc" 123) 'abc123))
 
-  (println (html [:div
-                  [:h2 "All Posts"]
-                  [:ul
-                   (for [item :in posts]
-                     [:li
-                      (php/-> item post_title) " "
-                      [:a {:href (php/get_permalink item)} "hyperlink"]])]])))
+(defmacro read-config
+  "Check's if PHP constant is set and throws exception if not.
+  TODO could have default value."
+  [name]
+  (let [php-const-symbol (symbol (str "php/" name))]
+    `(if (php/defined ,name)
+       ,php-const-symbol
+         (php/new \RuntimeException (str "PHP constant " ,name
+                                         " required for migration tool is not defined.")))))
 
-(php/add_action "wp_dashboard_setup"
-                (fn [] (php/wp_add_dashboard_widget "phel-widget-id"
-                                                    "This is Phel content"
-                                                    phel-widget-content)))
+(def db-prefix (read-config "SOURCE_MYSQL_DB_PREFIX"))
+
+(def db-connection-string (str "mysql:host=" (read-config "SOURCE_MYSQL_HOST")
+                               ";dbname=" (read-config "SOURCE_MYSQL_DB_NAME")
+                               ";charset=" (read-config "SOURCE_MYSQL_DB_CHARSET")))
+
+(def remote-db
+  (let [conn (pdo/connect db-connection-string
+                          (read-config "SOURCE_MYSQL_USER")
+                          (read-config "SOURCE_MYSQL_PASSWORD"))]
+    (pdo/exec conn (str "SET NAMES " (read-config "SOURCE_MYSQL_DB_CHARSET")
+                        " COLLATE "  (read-config "SOURCE_MYSQL_DB_COLLATION")))
+    conn))
+
+## (def posts (php/get_posts
+##             (to-php-array {"post_type" "post"
+##                            "numberposts" 2})))
+
+## (defn current-user-name []
+##   (-> (php/wp_get_current_user)
+##       (php/-> user_login)))
+
+## (defn phel-widget-content []
+##   (println "Hello, World!")
+##   (println "Your WordPress account name is: ")
+##   (println (current-user-name))
+
+##   (println (html [:div
+##                   [:h2 "All Posts"]
+##                   [:ul
+##                    (for [item :in posts]
+##                      [:li
+##                       (php/-> item post_title) " "
+##                       [:a {:href (php/get_permalink item)} "hyperlink"]])]])))
+
+## (php/add_action "wp_dashboard_setup"
+##                 (fn [] (php/wp_add_dashboard_widget "phel-widget-id"
+##                                                     "This is Phel content"
+##                                                     phel-widget-content)))
