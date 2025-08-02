@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "473dde503bde6d13d1a7ee164d29cf9c",
+    "content-hash": "e0a956bef4b688cf1d6deaac12cdb678",
     "packages": [
         {
             "name": "gacela-project/container",
@@ -160,21 +160,21 @@
         },
         {
             "name": "phel-lang/phel-lang",
-            "version": "v0.19.0",
+            "version": "v0.18.1",
             "source": {
                 "type": "git",
                 "url": "https://github.com/phel-lang/phel-lang.git",
-                "reference": "9cf095fdf76c095ef67ae654490bde94a0927587"
+                "reference": "d9029ac26ff5ee9a1144df0e6c026403423da5b8"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/phel-lang/phel-lang/zipball/9cf095fdf76c095ef67ae654490bde94a0927587",
-                "reference": "9cf095fdf76c095ef67ae654490bde94a0927587",
+                "url": "https://api.github.com/repos/phel-lang/phel-lang/zipball/d9029ac26ff5ee9a1144df0e6c026403423da5b8",
+                "reference": "d9029ac26ff5ee9a1144df0e6c026403423da5b8",
                 "shasum": ""
             },
             "require": {
-                "gacela-project/gacela": "^1.10",
-                "php": ">=8.3",
+                "gacela-project/gacela": "^1.9",
+                "php": ">=8.2",
                 "phpunit/php-timer": "^6.0",
                 "symfony/console": "^7.0"
             },
@@ -224,7 +224,7 @@
             ],
             "support": {
                 "issues": "https://github.com/phel-lang/phel-lang/issues",
-                "source": "https://github.com/phel-lang/phel-lang/tree/v0.19.0"
+                "source": "https://github.com/phel-lang/phel-lang/tree/v0.18.1"
             },
             "funding": [
                 {
@@ -232,7 +232,7 @@
                     "type": "custom"
                 }
             ],
-            "time": "2025-08-01T22:59:21+00:00"
+            "time": "2025-06-18T05:02:17+00:00"
         },
         {
             "name": "phel-lang/phel-pdo",
