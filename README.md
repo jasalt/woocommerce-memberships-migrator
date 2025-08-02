@@ -2,6 +2,8 @@ Status: Work in progress.
 
 Migration tool for customer user account and membership data via MySQL database connection.
 
+Requires PHP8.3+ (Phel) and source MySQL server version MySQL 5.7.22+ or MariaDB 10.3+ (`JSON_OBJECTAGG()`).
+
 # Developer information
 WordPress plugin made with [Phel](https://phel-lang.org/) (functional Lisp-family language compiling to PHP), consult wp-phel-plugin repository for more info.
 
@@ -66,6 +68,30 @@ select * from wp_posts where post_status LIKE '%wcm%' and post_author = 4703
 ### Query usermetas
 select * from wp_usermeta where user_id = 4703
 
+### Query customer users and all their usermetas as JSON
+
+```
+SELECT
+    u.ID,
+    u.user_login,
+    u.user_pass,
+    u.user_nicename,
+    u.user_email,
+    u.user_registered,
+    u.display_name,
+    JSON_OBJECTAGG(um.meta_key, um.meta_value) AS user_meta
+FROM wp_users u
+JOIN wp_usermeta um ON u.ID = um.user_id
+WHERE u.ID IN (
+    SELECT user_id
+    FROM wp_usermeta
+    WHERE meta_key = 'wp_capabilities'
+    AND meta_value LIKE '%"customer";b:1;%'
+)
+GROUP BY u.ID, u.user_login, u.user_email, u.user_registered, u.display_name
+ORDER BY u.ID;
+```
+Returns single row per user with meta key-value pairs as single JSON column.
 
 ## Required workarounds
 
