@@ -1,23 +1,17 @@
 (ns woocommerce-memberships-migrator\main
   (:require phel\pdo :as pdo)
   (:require woocommerce-memberships-migrator\lib\wp :as wp)
-  (:require phel\html :refer [html]))
+  (:require phel\html :refer [html])
+  (:use \Phel\Lang\Symbol))
 
-#### Symbol function loosely after
-## - https://github.com/janet-lang/janet/blob/73334f3/src/core/corelib.c#L337
-## Also see:
-## - https://github.com/janet-lang/janet/blob/ddc122958be34a18edd754743851536b5a16a3cc/test/suite-symcache.janet#L24
-## - https://github.com/clojure/clojure/blob/master/src/clj/clojure/core.clj#L591
-## TODO PR
+## PR: https://github.com/phel-lang/phel-lang/pull/859
 (defn symbol
-  "Creates a symbol by concatenating the elements of `xs` together.
-   Returns the new symbol."
-  [& xs]
-  (php/:: \Phel\Lang\Symbol (create (apply str xs))))
-
-## Test
-(comment
-  (= (symbol "abc" 123) 'abc123))
+  "Returns a new symbol for given string with optional namespace.
+   Arity-1 returns a symbol without namespace. Arity-2 returns a symbol in given namespace."
+  [name-or-ns & [name]]
+  (if name
+    (php/:: Symbol (createForNamespace name-or-ns name))
+    (php/:: Symbol (create name-or-ns))))
 
 (defmacro read-config
   "Check's if PHP constant is set and throws exception if not.
@@ -42,6 +36,7 @@
     (pdo/exec conn (str "SET NAMES " (read-config "SOURCE_MYSQL_DB_CHARSET")
                         " COLLATE "  (read-config "SOURCE_MYSQL_DB_COLLATION")))
     conn))
+
 
 ## (def posts (php/get_posts
 ##             (to-php-array {"post_type" "post"
