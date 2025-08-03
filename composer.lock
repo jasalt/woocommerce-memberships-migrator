@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "e0a956bef4b688cf1d6deaac12cdb678",
+    "content-hash": "f85607765acb67304f92697181ac8c64",
     "packages": [
         {
             "name": "gacela-project/container",
@@ -160,21 +160,21 @@
         },
         {
             "name": "phel-lang/phel-lang",
-            "version": "v0.18.1",
+            "version": "dev-main",
             "source": {
                 "type": "git",
                 "url": "https://github.com/phel-lang/phel-lang.git",
-                "reference": "d9029ac26ff5ee9a1144df0e6c026403423da5b8"
+                "reference": "925ea02f4d9b4960071b06e5e8a24f4ae9ff2932"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/phel-lang/phel-lang/zipball/d9029ac26ff5ee9a1144df0e6c026403423da5b8",
-                "reference": "d9029ac26ff5ee9a1144df0e6c026403423da5b8",
+                "url": "https://api.github.com/repos/phel-lang/phel-lang/zipball/925ea02f4d9b4960071b06e5e8a24f4ae9ff2932",
+                "reference": "925ea02f4d9b4960071b06e5e8a24f4ae9ff2932",
                 "shasum": ""
             },
             "require": {
-                "gacela-project/gacela": "^1.9",
-                "php": ">=8.2",
+                "gacela-project/gacela": "^1.10",
+                "php": ">=8.3",
                 "phpunit/php-timer": "^6.0",
                 "symfony/console": "^7.0"
             },
@@ -190,6 +190,7 @@
                 "symfony/var-dumper": "^7.2",
                 "vimeo/psalm": "^5.26"
             },
+            "default-branch": true,
             "bin": [
                 "bin/phel"
             ],
@@ -224,7 +225,7 @@
             ],
             "support": {
                 "issues": "https://github.com/phel-lang/phel-lang/issues",
-                "source": "https://github.com/phel-lang/phel-lang/tree/v0.18.1"
+                "source": "https://github.com/phel-lang/phel-lang/tree/v0.19.1"
             },
             "funding": [
                 {
@@ -232,7 +233,7 @@
                     "type": "custom"
                 }
             ],
-            "time": "2025-06-18T05:02:17+00:00"
+            "time": "2025-08-03T12:20:59+00:00"
         },
         {
             "name": "phel-lang/phel-pdo",
@@ -633,6 +634,10 @@
                     "type": "github"
                 },
                 {
+                    "url": "https://github.com/nicolas-grekas",
+                    "type": "github"
+                },
+                {
                     "url": "https://tidelift.com/funding/github/packagist/symfony/symfony",
                     "type": "tidelift"
                 }
@@ -794,6 +799,10 @@
                     "type": "github"
                 },
                 {
+                    "url": "https://github.com/nicolas-grekas",
+                    "type": "github"
+                },
+                {
                     "url": "https://tidelift.com/funding/github/packagist/symfony/symfony",
                     "type": "tidelift"
                 }
@@ -873,6 +882,10 @@
                 },
                 {
                     "url": "https://github.com/fabpot",
+                    "type": "github"
+                },
+                {
+                    "url": "https://github.com/nicolas-grekas",
                     "type": "github"
                 },
                 {
@@ -1059,9 +1072,18 @@
         }
     ],
     "packages-dev": [],
-    "aliases": [],
+    "aliases": [
+        {
+            "package": "phel-lang/phel-lang",
+            "version": "dev-main",
+            "alias": "v0.19.1",
+            "alias_normalized": "0.19.1.0"
+        }
+    ],
     "minimum-stability": "dev",
-    "stability-flags": {},
+    "stability-flags": {
+        "phel-lang/phel-lang": 20
+    },
     "prefer-stable": false,
     "prefer-lowest": false,
     "platform": {
