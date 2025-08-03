@@ -1,17 +1,7 @@
 (ns woocommerce-memberships-migrator\main
   (:require phel\pdo :as pdo)
   (:require woocommerce-memberships-migrator\lib\wp :as wp)
-  (:require phel\html :refer [html])
-  (:use \Phel\Lang\Symbol))
-
-## PR: https://github.com/phel-lang/phel-lang/pull/859
-(defn symbol
-  "Returns a new symbol for given string with optional namespace.
-   Arity-1 returns a symbol without namespace. Arity-2 returns a symbol in given namespace."
-  [name-or-ns & [name]]
-  (if name
-    (php/:: Symbol (createForNamespace name-or-ns name))
-    (php/:: Symbol (create name-or-ns))))
+  (:require phel\html :refer [html]))
 
 (defmacro read-config
   "Check's if PHP constant is set and throws exception if not.
@@ -26,7 +16,7 @@
 (def db-prefix (read-config "SOURCE_MYSQL_DB_PREFIX"))
 
 (def db-connection-string (str "mysql:host=" (read-config "SOURCE_MYSQL_HOST")
-                               ";dbname=" (read-config "SOURCE_MYSQL_DB_NAME")
+                               ";dbname="  (read-config "SOURCE_MYSQL_DB_NAME")
                                ";charset=" (read-config "SOURCE_MYSQL_DB_CHARSET")))
 
 (def remote-db
@@ -37,6 +27,17 @@
                         " COLLATE "  (read-config "SOURCE_MYSQL_DB_COLLATION")))
     conn))
 
+(defn get-user-by-login [email]
+  (php/get_user_by "login" email))
+
+(defn email-exists? [email]
+  (php/email_exists "user@example.com"))
+
+## Add PHP associative array mapping of membership plans (old->new) in wp-config.php
+
+## Metas to import array
+
+## Get users with role customer
 
 ## (def posts (php/get_posts
 ##             (to-php-array {"post_type" "post"
