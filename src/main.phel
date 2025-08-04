@@ -49,42 +49,42 @@ GROUP BY u.ID, u.user_login, u.user_email, u.user_registered, u.display_name
 ORDER BY u.ID;"))
 
 
-(def customer-users (wp/pdo-fetch-all remote-db sql-customer-users))
+(defn get-source-customers []
+  (let [customers (wp/pdo-fetch-all remote-db sql-customer-users)]
+    customers))
+
+(def source-customers (get-source-customers))
+
+(defn keywordize-keys
+  "Converts map keys to keywords.
+  TODO Could recursively walk as in https://clojuredocs.org/clojure.walk/keywordize-keys"
+  [m]
+  (for [[k v] :pairs m :reduce [m {}]]
+       (put m (keyword k) v)))
 
 (comment
-  (first customer-users)
-  (count customer-users)
+  (let [customer (first source-customers)]
+    (-> (get customer :user_meta)
+        (php/json_decode)
+        (php/get_object_vars)
+        (php->phel)
+        (keywordize-keys)
+        )
+    )
+
+
+  (count source-customers)
+
+  ## (php->phel (php/get_object_vars (php/json_decode (get customer :user_meta))))
+
+  ## deserialize _capabilities session_tokens
+  ## discard unneeded keys during user creation
+
   )
 
 
-## Add PHP associative array mapping of membership plans (old->new) in wp-config.php
-
-## Metas to import array
-
-## Get users with role customer
+## TODO Add PHP associative array mapping of membership plans (old->new) in wp-config.php
 
 ## (def posts (php/get_posts
 ##             (to-php-array {"post_type" "post"
 ##                            "numberposts" 2})))
-
-## (defn current-user-name []
-##   (-> (php/wp_get_current_user)
-##       (php/-> user_login)))
-
-## (defn phel-widget-content []
-##   (println "Hello, World!")
-##   (println "Your WordPress account name is: ")
-##   (println (current-user-name))
-
-##   (println (html [:div
-##                   [:h2 "All Posts"]
-##                   [:ul
-##                    (for [item :in posts]
-##                      [:li
-##                       (php/-> item post_title) " "
-##                       [:a {:href (php/get_permalink item)} "hyperlink"]])]])))
-
-## (php/add_action "wp_dashboard_setup"
-##                 (fn [] (php/wp_add_dashboard_widget "phel-widget-id"
-##                                                     "This is Phel content"
-##                                                     phel-widget-content)))
