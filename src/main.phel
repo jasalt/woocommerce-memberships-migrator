@@ -138,10 +138,9 @@ ORDER BY u.ID;"))
         default-meta {(str wp/wp-prefix "capabilities") (php/serialize (phel->php {"customer" true}))
                       (str wp/wp-prefix "user_level") "0"
                       "legacy_user_id" (get user :ID)}
-        user-meta (for [k-str :in metas-to-import :reduce [acc default-meta]]
-                    (if (get orig-meta (keyword k-str))
-                      (put acc k-str (get orig-meta (keyword k-str)))
-                      acc))
+        user-meta (for [k-str :in metas-to-import :reduce [acc default-meta]
+                        :let [orig-value (get orig-meta (keyword k-str))]]
+                    (if orig-value (put acc k-str orig-value) acc))
         data {"user_login" (get user :user_login)
               "user_pass" (get user :user_pass)
               "user_nicename" (get user :user_nicename)
@@ -149,10 +148,7 @@ ORDER BY u.ID;"))
               "user_registered" (get user :user_registered)
               "display_name" (get user :display_name)
               "meta_input" user-meta}]
-    (phel->php data)
-    ## (php/wp_insert_user (phel->php data))
-    )
-  )
+    (php/wp_insert_user (phel->php data))))
 
 (comment
   (insert-user user)
@@ -160,7 +156,7 @@ ORDER BY u.ID;"))
   (get (get user :user_meta) :wp_capabilities)
   (get user :first_name)
 
-  (def user (db-customer-to-map (first source-customers)))
+  (def user (db-customer-to-map (second source-customers)))
   (wp/email-exists? "foo")
 
 
