@@ -99,13 +99,11 @@ ORDER BY u.ID;"))
 (defn de-mojibake-values
   "Brute force fix dual encoding problems of source database strings.
   TODO action user configurable, not hardcoded"
-  [m]
-  (let [substitutions {"Ã¶" "ö"
-                       "Ã¤" "ä"}]
-    (for [[k v] :pairs m :reduce [m {}]]
-      (put m k (if (string? v)
-                 (replace-all v substitutions)
-                 v)))))
+  [m substitutions]
+  (for [[k v] :pairs m :reduce [m {}]]
+    (put m k (if (string? v)
+               (replace-all v substitutions)
+               v))))
 
 (comment
   (let [customer (first source-customers)]
@@ -115,8 +113,10 @@ ORDER BY u.ID;"))
         (php->phel)
         (standardize-keys)
         (keywordize-keys)
-        (deserialize-values [:session_tokens :wp_capabilities :_wpcw_subs_expired_check]) # TODO keys should be user selectable, not hardcoded
-        (de-mojibake-values)
+        # TODO keys and substitutions should be user selectable, not hardcoded
+        (deserialize-values [:session_tokens :wp_capabilities :_wpcw_subs_expired_check])
+        (de-mojibake-values {"Ã¶" "ö"
+                             "Ã¤" "ä"})
         )
     )
 
