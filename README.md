@@ -59,18 +59,31 @@ It's postmeta includes relevant keys:
 - `_product_id` (not necessary as CPT )
 
 ## Example SQL queries:
-### Query all active memberships
-select * from wp_posts where post_status LIKE '%wcm-active%' AND post_type = 'wc_user_membership'
+### Query all membership plans
+
+```sql
+select * from wp_posts where post_type = "wc_membership_plan"
+```
+
+### Query all active memberships with meta
+
+```sql
+SELECT
+    p.*,
+    JSON_OBJECTAGG(pm.meta_key, pm.meta_value) AS post_meta
+FROM wp_posts p
+LEFT JOIN wp_postmeta pm ON p.ID = pm.post_id
+WHERE p.post_status LIKE '%wcm-active%'
+  AND p.post_type = 'wc_user_membership'
+GROUP BY p.ID;
+```
 
 ### Query user's memberships
 select * from wp_posts where post_status LIKE '%wcm%' and post_author = 4703
 
-### Query usermetas
-select * from wp_usermeta where user_id = 4703
-
 ### Query customer users and all their usermetas as JSON
 
-```
+```sql
 SELECT
     u.ID,
     u.user_login,

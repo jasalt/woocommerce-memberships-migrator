@@ -52,8 +52,6 @@ ORDER BY u.ID;"))
   (let [customers (wp/pdo-fetch-all remote-db sql-customer-users)]
     customers))
 
-(def source-customers (get-source-customers))
-
 (defn standardize-keys
   "When using custom database prefix, convert keys use standard `wp_` prefix instead of it.
   E.g. `myprefix_capabilities` becomes `wp_capabilities`.
@@ -159,30 +157,63 @@ ORDER BY u.ID;"))
            (do (println "Importing user: " user-email)
                (insert-user user)))))
 
+(def sql-user-memberships
+  (str "SELECT
+        p.*,
+        JSON_OBJECTAGG(pm.meta_key, pm.meta_value) AS post_meta
+        FROM " db-prefix "posts p
+        LEFT JOIN " db-prefix "postmeta pm ON p.ID = pm.post_id
+        WHERE p.post_status LIKE '%wcm-active%'
+        AND p.post_type = 'wc_user_membership'
+        GROUP BY p.ID;"))
+
+(defn get-source-user-memberships []
+  (wp/pdo-fetch-all remote-db sql-user-memberships))
+
+## TODO {user_id: [membership*]} for matching
+
+## TODO make user configurable instead of hard coded
+(def membership-mapping {1 2
+                         3 4
+                         5 6})
+
+## TODO Verify id's with target site db
+## (def posts (php/get_posts
+##             (to-php-array {"post_type" "wc_membership_plan"})))
+
+(def sql-membership-plans
+  (str "SELECT * FROM " db-prefix "posts WHERE post_type = \"wc_membership_plan\""))
+
+(defn get-source-membership-plans []
+  (wp/pdo-fetch-all remote-db sql-membership-plans))
+
+## TODO JSON_OBJECTAGG converter fn?
+
 (comment
 
-  (import-users (take 5 source-customers))
-
-  (insert-user user)
-
-  (get (get user :user_meta) :wp_capabilities)
-  (get user :first_name)
-
-  (def user (db-customer-to-map (second source-customers)))
+  (let [memberships (first user-memberships)]
+    (put memberships :post_meta (-> (get memberships :post_meta)
+                                    (decode-sql-json)
+                                    (de-mojibake-values de-mojibake-substitutions)
+                                    ))
+    )
 
 
+  (def user-memberships (get-source-user-memberships))
+  (count user-memberships)
+  (first user-memberships)
+
+  (def memberships-plans (get-source-membership-plans))
+  (count memberships-plans)
+
+  ## User
+  (def source-customers (get-source-customers))
 
   (count source-customers)
 
-  ## (php->phel (php/get_object_vars (php/json_decode (get customer :user_meta))))
+  (import-users (take 5 source-customers))
 
-  ## discard unneeded keys during user creation
+  (def user (db-customer-to-map (first source-customers)))
+  (import-user user)
 
   )
-
-
-## TODO Add PHP associative array mapping of membership plans (old->new) in wp-config.php
-
-## (def posts (php/get_posts
-##             (to-php-array {"post_type" "post"
-##                            "numberposts" 2})))
