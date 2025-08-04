@@ -62,7 +62,9 @@ ORDER BY u.ID;"))
   (if (= "wp" db-prefix)
     m
     (for [[k v] :pairs m :reduce [m {}]]
-      (put m (str/replace k (str db-prefix "_") "wp_") v))))
+      (put m (if (str/starts-with? k db-prefix)
+               (str/replace-first k db-prefix "wp")
+               k) v))))
 
 (defn keywordize-keys
   "Converts map keys to keywords.
