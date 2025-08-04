@@ -17,7 +17,7 @@ define('SOURCE_MYSQL_HOST', '123');
 define('SOURCE_MYSQL_USER', 'asdf');
 define('SOURCE_MYSQL_PASSWORD', 'asdf');
 define('SOURCE_MYSQL_DB_NAME', 'asdf');
-define('SOURCE_MYSQL_DB_PREFIX', 'asdf');
+define('SOURCE_MYSQL_DB_PREFIX', 'asdf_');
 define('SOURCE_MYSQL_DB_CHARSET', 'asdf');
 define('SOURCE_MYSQL_DB_COLLATION', 'asdf');
 ```

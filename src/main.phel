@@ -37,12 +37,12 @@
     u.user_registered,
     u.display_name,
     JSON_OBJECTAGG(um.meta_key, um.meta_value) AS user_meta
-FROM " db-prefix "_users u
-JOIN " db-prefix "_usermeta um ON u.ID = um.user_id
+FROM " db-prefix "users u
+JOIN " db-prefix "usermeta um ON u.ID = um.user_id
 WHERE u.ID IN (
     SELECT user_id
-    FROM " db-prefix "_usermeta
-    WHERE meta_key = '" db-prefix "_capabilities'
+    FROM " db-prefix "usermeta
+    WHERE meta_key = '" db-prefix "capabilities'
     AND meta_value LIKE '%\"customer\";b:1;%'
 )
 GROUP BY u.ID, u.user_login, u.user_email, u.user_registered, u.display_name
@@ -55,15 +55,15 @@ ORDER BY u.ID;"))
 (def source-customers (get-source-customers))
 
 (defn standardize-keys
-  "When using custom database prefix, convert keys use standard `wp` prefix instead of it.
+  "When using custom database prefix, convert keys use standard `wp_` prefix instead of it.
   E.g. `myprefix_capabilities` becomes `wp_capabilities`.
   If using standard prefix, nothing is done."
   [m]
-  (if (= "wp" db-prefix)
+  (if (= "wp_" db-prefix)
     m
     (for [[k v] :pairs m :reduce [m {}]]
       (put m (if (str/starts-with? k db-prefix)
-               (str/replace-first k db-prefix "wp")
+               (str/replace-first k db-prefix "wp_")
                k) v))))
 
 (defn keywordize-keys
