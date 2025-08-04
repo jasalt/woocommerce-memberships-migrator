@@ -11,7 +11,7 @@ Tool "pulls" customer data via MySQL connection from (remote) source system usin
 
 Following variables are required for PDO connection and need to be set in `wp-config.php`:
 
-```
+```php
 // WooCommerce Memberships migration config
 define('SOURCE_MYSQL_HOST', '123');
 define('SOURCE_MYSQL_USER', 'asdf');
@@ -22,20 +22,21 @@ define('SOURCE_MYSQL_DB_CHARSET', 'asdf');
 define('SOURCE_MYSQL_DB_COLLATION', 'asdf');
 ```
 
-
 ## User account importing
 
 Source system customer data is read over MySQL connection and new user accounts are created on target system the software is running.
 Accounts that already exist on target are skipped.
 
-Relevant customer data including password is imported with whitelisted keys in `wp_usermeta`.
+Relevant customer data including password is imported with whitelisted `wp_usermeta` keys.
 
-Additional `legacy_user_id` usermeta is added to newly created users on target with source system's User ID.
+Additional `legacy_user_id` usermeta is added to migrated users on target with source system's User ID.
 
-## Membership importing
-A membership plan ID mapping (associative array) is required for re-creating membership plans from source system on the target system. It is defined in `wp-config.php`:
+## User membership importing
+
+Matching membership plans must be created beforehand manually on new site and membership plan ID mapping is defined in `wp-config.php`:
 
 ```php
+// Old site membership plan id -> new site membership plan id
 define('MEMBERSHIP_PLAN_MIGRATION_MAPPING',
 [
 1234 => 4321,
@@ -46,7 +47,7 @@ define('MEMBERSHIP_PLAN_MIGRATION_MAPPING',
 ]);
 ```
 
-Each membership with active status is read from source database and re-created on target using plugin's PHP API functions.
+Each user membership (`wc_user_membership` CPT) with active status (`wcm-active` post status) is read from source database and re-created on target. Additional `legacy_plan_id` postmeta is added to migrated user memberships with source system's membership plan ID.
 
 # WooCommerce Memberships database schema notes
 
