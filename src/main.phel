@@ -4,14 +4,14 @@
   (:require phel\html :refer [html]))
 
 (defmacro read-config
-  "Check's if PHP constant is set and throws exception if not.
-  TODO could have default value."
-  [name]
+  "Read PHP constant or throw exception if not set.
+   Supports default values for optional configs."
+  [name & [default]]
   (let [php-const-symbol (symbol (str "php/" name))]
     `(if (php/defined ,name)
        ,php-const-symbol
-         (php/new \RuntimeException (str "PHP constant " ,name
-                                         " required for migration tool is not defined.")))))
+       (or ,default
+           (php/new \RuntimeException (str "PHP constant " ,name " is required but not defined."))))))
 
 (def db-prefix (read-config "SOURCE_MYSQL_DB_PREFIX"))
 
@@ -27,11 +27,35 @@
                         " COLLATE "  (read-config "SOURCE_MYSQL_DB_COLLATION")))
     conn))
 
-(defn get-user-by-login [email]
-  (php/get_user_by "login" email))
+(def sql-customer-users
+  (str "SELECT
+    u.ID,
+    u.user_login,
+    u.user_pass,
+    u.user_nicename,
+    u.user_email,
+    u.user_registered,
+    u.display_name,
+    JSON_OBJECTAGG(um.meta_key, um.meta_value) AS user_meta
+FROM " db-prefix "_users u
+JOIN " db-prefix "_usermeta um ON u.ID = um.user_id
+WHERE u.ID IN (
+    SELECT user_id
+    FROM " db-prefix "_usermeta
+    WHERE meta_key = '" db-prefix "_capabilities'
+    AND meta_value LIKE '%\"customer\";b:1;%'
+)
+GROUP BY u.ID, u.user_login, u.user_email, u.user_registered, u.display_name
+ORDER BY u.ID;"))
 
-(defn email-exists? [email]
-  (php/email_exists "user@example.com"))
+
+(def customer-users (wp/pdo-fetch-all remote-db sql-customer-users))
+
+(comment
+  (first customer-users)
+  (count customer-users)
+  )
+
 
 ## Add PHP associative array mapping of membership plans (old->new) in wp-config.php
 
