@@ -68,16 +68,28 @@ ORDER BY u.ID;"))
 
 (defn keywordize-keys
   "Converts map keys to keywords.
-  TODO Could recursively walk as in https://clojuredocs.org/clojure.walk/keywordize-keys"
+  Recursively converts nested maps and arrays."
   [m]
-  (for [[k v] :pairs m :reduce [m {}]]
-       (put m (keyword k) v)))
+  (cond
+    (hash-map? m)
+    (let [res (transient {})]
+      (foreach [k v m]
+        (put res (keyword k) (keywordize-keys v)))
+      (persistent res))
+
+    (indexed-php-array? m)
+    (let [res (transient [])]
+      (foreach [v m]
+        (push res (keywordize-keys v)))
+      (persistent res))
+
+    true m))
 
 (defn deserialize-values [m]
   "Deserialize predefined meta key values stored as serialized PHP"
   ## deserialize _capabilities session_tokens
-  (put m (symbol (str ":" db-prefix "_capabilities")))
-  )
+  (put m :wp_capabilities (keywordize-keys (php->phel (php/unserialize (get m :wp_capabilities)))))
+  (put m :session_tokens (keywordize-keys (php->phel (php/unserialize (get m :session_tokens))))))
 
 (comment
   (let [customer (first source-customers)]
@@ -87,6 +99,7 @@ ORDER BY u.ID;"))
         (php->phel)
         (standardize-keys)
         (keywordize-keys)
+        (deserialize-values)
         )
     )
 
