@@ -85,17 +85,12 @@ ORDER BY u.ID;"))
 
     true m))
 
-(defn deserialize-values [m]
-  "Deserialize predefined meta key values stored as serialized PHP
-   TODO keys should be user selectable, not hardcoded"
-  (-> m
-      (put :wp_capabilities (keywordize-keys (php->phel (php/unserialize (get m :wp_capabilities)))))
-      (put :session_tokens (keywordize-keys (php->phel (php/unserialize (get m :session_tokens)))))
-      (put :_wpcw_subs_expired_check (keywordize-keys (php->phel (php/unserialize (get m :_wpcw_subs_expired_check)))))
-      )
-  )
+(defn deserialize-values [m keys]
+  "Deserialize predefined meta key values stored as serialized PHP"
+  (for [key :in keys :reduce [acc m]]
+    (put acc key (keywordize-keys (php->phel (php/unserialize (get m key)))))))
 
-(defn substitute-all
+(defn replace-all
   "Does string replacements according to the `substitutions` map such as {\"Ã¶\" \"ö\" \"Ã¤\" \"ä\"}."
   [s substitutions]
   (for [[from to] :pairs substitutions :reduce [string s]]
@@ -120,7 +115,7 @@ ORDER BY u.ID;"))
         (php->phel)
         (standardize-keys)
         (keywordize-keys)
-        (deserialize-values)
+        (deserialize-values [:session_tokens :wp_capabilities :_wpcw_subs_expired_check]) # TODO keys should be user selectable, not hardcoded
         (de-mojibake-values)
         )
     )
