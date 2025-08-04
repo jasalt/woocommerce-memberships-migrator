@@ -108,7 +108,9 @@ ORDER BY u.ID;"))
   (let [substitutions {"Ã¶" "ö"
                        "Ã¤" "ä"}]
     (for [[k v] :pairs m :reduce [m {}]]
-      (put m k (substitute-all v substitutions)))))
+      (put m k (if (string? v)
+                 (replace-all v substitutions)
+                 v)))))
 
 (comment
   (let [customer (first source-customers)]
