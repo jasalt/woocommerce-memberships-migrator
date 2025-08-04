@@ -105,19 +105,28 @@ ORDER BY u.ID;"))
                (replace-all v substitutions)
                v))))
 
-(comment
-  (let [customer (first source-customers)]
-    (-> (get customer :user_meta)
-        (php/json_decode)
-        (php/get_object_vars)
-        (php->phel)
-        (standardize-keys)
-        (keywordize-keys)
-        # TODO keys and substitutions should be user selectable, not hardcoded
-        (deserialize-values [:session_tokens :wp_capabilities :_wpcw_subs_expired_check])
+(defn db-customer-to-map [customer]
+  (let [meta  # process user_meta returned as JSON separately
+        (-> (get customer :user_meta)
+            (php/json_decode)
+            (php/get_object_vars)
+            (php->phel)
+            (standardize-keys)
+            (keywordize-keys)
+            ## TODO keys and substitutions should be user selectable, not hardcoded
+            (deserialize-values [:session_tokens :wp_capabilities :_wpcw_subs_expired_check])
+            (de-mojibake-values {"Ã¶" "ö"
+                                 "Ã¤" "ä"}))]
+    (-> customer
         (de-mojibake-values {"Ã¶" "ö"
                              "Ã¤" "ä"})
-        )
+        (put :user_meta meta))))
+
+(comment
+  (db-customer-to-map (first source-customers))
+
+  (let [customer (first source-customers)]
+
     )
 
 
