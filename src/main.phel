@@ -157,15 +157,6 @@ ORDER BY u.ID;"))
               "meta_input" user-meta}]
     (php/wp_insert_user (phel->php data))))
 
-
-(defn import-users [users]
-  (dofor [u :in users :let [user (db-customer-to-map u)
-                            user-email (get user :user_email)]]
-         (if (int? (php/email_exists user-email))
-           (println "Skip existing user: " user-email)
-           (do (println "Importing user: " user-email)
-               (insert-user user)))))
-
 (def sql-user-memberships
   (str "SELECT
         p.*,
@@ -178,8 +169,6 @@ ORDER BY u.ID;"))
 
 (defn get-source-user-memberships []
   (wp/pdo-fetch-all remote-db sql-user-memberships))
-
-## TODO {user_id: [membership*]} for matching (?)
 
 ## TODO make user configurable instead of hard coded
 ## Defines mapping from old source site membership-plan post_id to new site
@@ -195,23 +184,68 @@ ORDER BY u.ID;"))
 (defn get-source-membership-plans []
   (wp/pdo-fetch-all remote-db sql-membership-plans))
 
-(comment
-  (def user-memberships (get-source-user-memberships))
-  (count user-memberships)
+(defn db-memberships-to-map [m]
+  (for [db-membership :in db-user-memberships :reduce [acc {}]]
+           (let [post_meta (-> (get db-membership :post_meta)
+                               (decode-sql-json-metas)
+                               (de-mojibake-values de-mojibake-substitutions))
+                 membership (put db-membership :post_meta post_meta)
+                 uid (get membership :post_author)
+                 user-memberships (get acc uid)]
+             (if user-memberships
+               (put acc uid (push user-memberships membership))  # append if user has many
+               (put acc uid [membership])))))
 
-  (let [membership (peek user-memberships)]
-    (put membership :post_meta (-> (get memberships :post_meta)
-                                   (decode-sql-json-metas)
-                                   (de-mojibake-values de-mojibake-substitutions))))
+#### General process
+
+## 1) Read user memberships {user_id: [membership*]}
+## 2) Read users
+## 3) Process users:
+## - Migrate user
+## - Migrate user memberships
+
+(defn process-users [users memberships]
+  (dofor [u :in users :let [user (db-customer-to-map u)
+                            user-email (get user :user_email)]]
+
+         ## TODO UID for new or existing user
+         (if (int? (php/email_exists user-email))
+           (println "Existing user: " user-email)
+           (do (println "Importing user: " user-email)
+               (insert-user user)))
+
+         ## TODO Migrate user memberships
+         (dofor [membership :in (get uid memberships) :let [plan-id (get membership :post_parent)]]
+                ## Check if user has membership with plan-id and create if not existing
+                )
+
+         )
+  )
+
+(comment
+  (def db-memberships (get-source-user-memberships))
+  (count db-memberships)
+
+  ## (let [membership (peek db-user-memberships)]
+  ##   (put membership :post_meta (-> (get membership :post_meta)
+  ##                                  (decode-sql-json-metas)
+  ##                                  (de-mojibake-values de-mojibake-substitutions))))
+
+  (def memberships (db-memberships-to-map db-memberships))
+
+  (keys memberships)
+  (count (get memberships 4467))
+  (first (get memberships 4467))
+  (first
+        (for [membership :in db-user-memberships :reduce [acc {}] :let [uid (get membership :post_author)]]
+          (put acc uid membership)
+          )
+        )
+
   ## -> {:menu_order 0 :post_name "34950" :post_excerpt "" :post_title "" :post_date_gmt "2025-08-04 08:00:36" :post_modified "2025-08-04 11:00:36" :pinged "" :comment_status "open" :post_type "wc_user_membership" :post_author 4925 :post_parent 3130 :post_content_filtered "" :to_ping "" :ID 34950 :guid "https://example.com/?post_type=wc_user_membership&p=34950" :post_modified_gmt "2025-08-04 08:00:36" :ping_status "closed" :post_meta {:_wpml_word_count "0" :_product_id "3132" :_order_id "34949" :_start_date "2025-08-04 08:00:36" :_end_date "2026-08-04 08:00:36"} :post_date "2025-08-04 11:00:36" :comment_count 1 :post_password "um_12354534a41f68a" :post_mime_type "" :post_content "" :post_status "wcm-active"}
 
 
-  (def membership-plans (get-source-membership-plans))
-  (count membership-plans)
-  (first membership-plans)
-  ## -> {:ID 3130 :post_content "" :post_mime_type "" :post_password "" :post_author 6 :post_type "wc_membership_plan" :post_name "foo-membership" :post_modified "2025-05-20 11:09:15" :post_date "2020-12-19 10:29:31" :post_date_gmt "2020-12-19 08:29:31" :post_title "Foo Membership" :post_excerpt "" :post_content_filtered "" :post_status "publish" :comment_status "closed" :pinged "" :ping_status "closed" :post_modified_gmt "2025-05-20 09:09:15" :to_ping "" :guid "https://example.com/?post_type=wc_membership_plan&#038;p=3130" :post_parent 0 :menu_order 0 :comment_count 0}
-
-  ## User
+  ## Users
   (def source-customers (get-source-customers))
 
   (count source-customers)
@@ -220,5 +254,13 @@ ORDER BY u.ID;"))
 
   (def user (db-customer-to-map (first source-customers)))
   (import-user user)
+
+
+
+  ## Misc
+  (def membership-plans (get-source-membership-plans))
+  (count membership-plans)
+  (first membership-plans)
+  ## -> {:ID 3130 :post_content "" :post_mime_type "" :post_password "" :post_author 6 :post_type "wc_membership_plan" :post_name "foo-membership" :post_modified "2025-05-20 11:09:15" :post_date "2020-12-19 10:29:31" :post_date_gmt "2020-12-19 08:29:31" :post_title "Foo Membership" :post_excerpt "" :post_content_filtered "" :post_status "publish" :comment_status "closed" :pinged "" :ping_status "closed" :post_modified_gmt "2025-05-20 09:09:15" :to_ping "" :guid "https://example.com/?post_type=wc_membership_plan&#038;p=3130" :post_parent 0 :menu_order 0 :comment_count 0}
 
   )
