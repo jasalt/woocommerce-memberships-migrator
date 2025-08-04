@@ -1,7 +1,7 @@
 (ns woocommerce-memberships-migrator\main
   (:require phel\pdo :as pdo)
-  (:require woocommerce-memberships-migrator\lib\wp :as wp)
-  (:require phel\html :refer [html]))
+  (:require phel\str :as str)
+  (:require woocommerce-memberships-migrator\lib\wp :as wp))
 
 (defmacro read-config
   "Read PHP constant or throw exception if not set.
@@ -48,12 +48,21 @@ WHERE u.ID IN (
 GROUP BY u.ID, u.user_login, u.user_email, u.user_registered, u.display_name
 ORDER BY u.ID;"))
 
-
 (defn get-source-customers []
   (let [customers (wp/pdo-fetch-all remote-db sql-customer-users)]
     customers))
 
 (def source-customers (get-source-customers))
+
+(defn standardize-keys
+  "When using custom database prefix, convert keys use standard `wp` prefix instead of it.
+  E.g. `myprefix_capabilities` becomes `wp_capabilities`.
+  If using standard prefix, nothing is done."
+  [m]
+  (if (= "wp" db-prefix)
+    m
+    (for [[k v] :pairs m :reduce [m {}]]
+      (put m (str/replace k (str db-prefix "_") "wp_") v))))
 
 (defn keywordize-keys
   "Converts map keys to keywords.
@@ -62,12 +71,19 @@ ORDER BY u.ID;"))
   (for [[k v] :pairs m :reduce [m {}]]
        (put m (keyword k) v)))
 
+(defn deserialize-values [m]
+  "Deserialize predefined meta key values stored as serialized PHP"
+  ## deserialize _capabilities session_tokens
+  (put m (symbol (str ":" db-prefix "_capabilities")))
+  )
+
 (comment
   (let [customer (first source-customers)]
     (-> (get customer :user_meta)
         (php/json_decode)
         (php/get_object_vars)
         (php->phel)
+        (standardize-keys)
         (keywordize-keys)
         )
     )
@@ -77,7 +93,6 @@ ORDER BY u.ID;"))
 
   ## (php->phel (php/get_object_vars (php/json_decode (get customer :user_meta))))
 
-  ## deserialize _capabilities session_tokens
   ## discard unneeded keys during user creation
 
   )
