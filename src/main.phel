@@ -27,6 +27,10 @@
                         " COLLATE "  (read-config "SOURCE_MYSQL_DB_COLLATION")))
     conn))
 
+## TODO substitutions should be user configurable not hard coded
+(def de-mojibake-substitutions {"Ã¶" "ö"
+                                "Ã¤" "ä"})
+
 (def sql-customer-users
   (str "SELECT
     u.ID,
@@ -83,6 +87,17 @@ ORDER BY u.ID;"))
 
     true m))
 
+(defn decode-sql-json-metas
+  "Decodes meta key value pairs returned by JSONOBJECTAGG query which is
+  serialized json. Returns Phel hashmap with keyword keys."
+  [s]
+  (-> s
+      (php/json_decode)
+      (php/get_object_vars)
+      (php->phel)
+      (standardize-keys)
+      (keywordize-keys)))
+
 (defn deserialize-values [m keys]
   "Deserialize predefined meta key values stored as serialized PHP"
   (for [key :in keys :reduce [acc m]]
@@ -106,18 +121,12 @@ ORDER BY u.ID;"))
 (defn db-customer-to-map [customer]
   (let [user_meta  # process user_meta returned as JSON separately
         (-> (get customer :user_meta)
-            (php/json_decode)
-            (php/get_object_vars)
-            (php->phel)
-            (standardize-keys)
-            (keywordize-keys)
-            ## TODO keys and substitutions should be user selectable, not hardcoded
+            (decode-sql-json-metas)
+            ## TODO keys should be user selectable, not hardcoded
             (deserialize-values [:session_tokens :wp_capabilities :_wpcw_subs_expired_check])
-            (de-mojibake-values {"Ã¶" "ö"
-                                 "Ã¤" "ä"}))]
+            (de-mojibake-values de-mojibake-substitutions))]
     (-> customer
-        (de-mojibake-values {"Ã¶" "ö"
-                             "Ã¤" "ä"})
+        (de-mojibake-values de-mojibake-substitutions)
         (put :user_meta user_meta))))
 
 ## Example db-customer-to-map return value
