@@ -179,12 +179,11 @@ ORDER BY u.ID;"))
 (defn get-source-user-memberships []
   (wp/pdo-fetch-all remote-db sql-user-memberships))
 
-## TODO {user_id: [membership*]} for matching
+## TODO {user_id: [membership*]} for matching (?)
 
 ## TODO make user configurable instead of hard coded
-(def membership-mapping {1 2
-                         3 4
-                         5 6})
+## Defines mapping from old source site membership-plan post_id to new site
+(def membership-plan-mapping (php->phel (read-config "MEMBERSHIP_PLAN_MIGRATION_MAPPING")))
 
 ## TODO Verify id's with target site db
 ## (def posts (php/get_posts
@@ -196,24 +195,21 @@ ORDER BY u.ID;"))
 (defn get-source-membership-plans []
   (wp/pdo-fetch-all remote-db sql-membership-plans))
 
-## TODO JSON_OBJECTAGG converter fn?
-
 (comment
-
-  (let [memberships (first user-memberships)]
-    (put memberships :post_meta (-> (get memberships :post_meta)
-                                    (decode-sql-json)
-                                    (de-mojibake-values de-mojibake-substitutions)
-                                    ))
-    )
-
-
   (def user-memberships (get-source-user-memberships))
   (count user-memberships)
-  (first user-memberships)
 
-  (def memberships-plans (get-source-membership-plans))
-  (count memberships-plans)
+  (let [membership (peek user-memberships)]
+    (put membership :post_meta (-> (get memberships :post_meta)
+                                   (decode-sql-json-metas)
+                                   (de-mojibake-values de-mojibake-substitutions))))
+  ## {:menu_order 0 :post_name "34950" :post_excerpt "" :post_title "" :post_date_gmt "2025-08-04 08:00:36" :post_modified "2025-08-04 11:00:36" :pinged "" :comment_status "open" :post_type "wc_user_membership" :post_author 4925 :post_parent 3130 :post_content_filtered "" :to_ping "" :ID 34950 :guid "https://example.com/?post_type=wc_user_membership&p=34950" :post_modified_gmt "2025-08-04 08:00:36" :ping_status "closed" :post_meta {:_wpml_word_count "0" :_product_id "3132" :_order_id "34949" :_start_date "2025-08-04 08:00:36" :_end_date "2026-08-04 08:00:36"} :post_date "2025-08-04 11:00:36" :comment_count 1 :post_password "um_12354534a41f68a" :post_mime_type "" :post_content "" :post_status "wcm-active"}
+
+
+  (def membership-plans (get-source-membership-plans))
+  (count membership-plans)
+  (first membership-plans)
+  ## {:ID 3130 :post_content "" :post_mime_type "" :post_password "" :post_author 6 :post_type "wc_membership_plan" :post_name "foo-membership" :post_modified "2025-05-20 11:09:15" :post_date "2020-12-19 10:29:31" :post_date_gmt "2020-12-19 08:29:31" :post_title "Foo Membership" :post_excerpt "" :post_content_filtered "" :post_status "publish" :comment_status "closed" :pinged "" :ping_status "closed" :post_modified_gmt "2025-05-20 09:09:15" :to_ping "" :guid "https://example.com/?post_type=wc_membership_plan&#038;p=3130" :post_parent 0 :menu_order 0 :comment_count 0}
 
   ## User
   (def source-customers (get-source-customers))

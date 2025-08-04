@@ -33,7 +33,18 @@ Relevant customer data including password is imported with whitelisted keys in `
 Additional `legacy_user_id` usermeta is added to newly created users on target with source system's User ID.
 
 ## Membership importing
-A membership plan ID mapping (associative array) is required for re-creating membership plans from source system on the target system.
+A membership plan ID mapping (associative array) is required for re-creating membership plans from source system on the target system. It is defined in `wp-config.php`:
+
+```php
+define('MEMBERSHIP_PLAN_MIGRATION_MAPPING',
+[
+1234 => 4321,
+2345 => 5432,
+3456 => 6453,
+4567 => 7654,
+5678 => 8765
+]);
+```
 
 Each membership with active status is read from source database and re-created on target using plugin's PHP API functions.
 
