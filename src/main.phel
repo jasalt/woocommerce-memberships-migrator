@@ -86,10 +86,29 @@ ORDER BY u.ID;"))
     true m))
 
 (defn deserialize-values [m]
-  "Deserialize predefined meta key values stored as serialized PHP"
-  ## deserialize _capabilities session_tokens
-  (put m :wp_capabilities (keywordize-keys (php->phel (php/unserialize (get m :wp_capabilities)))))
-  (put m :session_tokens (keywordize-keys (php->phel (php/unserialize (get m :session_tokens))))))
+  "Deserialize predefined meta key values stored as serialized PHP
+   TODO keys should be user selectable, not hardcoded"
+  (-> m
+      (put :wp_capabilities (keywordize-keys (php->phel (php/unserialize (get m :wp_capabilities)))))
+      (put :session_tokens (keywordize-keys (php->phel (php/unserialize (get m :session_tokens)))))
+      (put :_wpcw_subs_expired_check (keywordize-keys (php->phel (php/unserialize (get m :_wpcw_subs_expired_check)))))
+      )
+  )
+
+(defn substitute-all
+  "Does string replacements according to the `substitutions` map such as {\"Ã¶\" \"ö\" \"Ã¤\" \"ä\"}."
+  [s substitutions]
+  (for [[from to] :pairs substitutions :reduce [string s]]
+    (str/replace string from to)))
+
+(defn de-mojibake-values
+  "Brute force fix dual encoding problems of source database strings.
+  TODO action user configurable, not hardcoded"
+  [m]
+  (let [substitutions {"Ã¶" "ö"
+                       "Ã¤" "ä"}]
+    (for [[k v] :pairs m :reduce [m {}]]
+      (put m k (substitute-all v substitutions)))))
 
 (comment
   (let [customer (first source-customers)]
@@ -100,6 +119,7 @@ ORDER BY u.ID;"))
         (standardize-keys)
         (keywordize-keys)
         (deserialize-values)
+        (de-mojibake-values)
         )
     )
 
