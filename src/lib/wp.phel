@@ -234,6 +234,15 @@
 
 ### WordPress data
 
+(defn get-user-by-login [email]
+  (php/get_user_by "login" email))
+
+(defn get-user-by-id [id]
+  (php/get_user_by "id" id))
+
+(defn email-exists? [email]
+  (int? (php/email_exists email)))
+
 (defn user-to-map
   "Returns Phel hashmap for WP_User PHP object with properties as
   string keys e.g. `data` `ID` `caps` `cap_key` `roles` `allcaps` `filter`.
