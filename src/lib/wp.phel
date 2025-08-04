@@ -232,6 +232,17 @@
                         (php/die)
                         )))))
 
+### WordPress data
+
+(defn user-to-map
+  "Returns Phel hashmap for WP_User PHP object with properties as
+  string keys e.g. `data` `ID` `caps` `cap_key` `roles` `allcaps` `filter`.
+  Useful for printing and processing printing user data."
+  [user-obj]
+  (let [m (php->phel (php/get_object_vars user-obj))
+        data (php->phel (php/get_object_vars (get m "data")))]
+    (put m "data" data)))
+
 ### WooCommerce specific
 
 (defn wc-get-product-id-by-barcode
