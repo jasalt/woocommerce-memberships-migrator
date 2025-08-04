@@ -150,14 +150,26 @@ ORDER BY u.ID;"))
               "meta_input" user-meta}]
     (php/wp_insert_user (phel->php data))))
 
+
+(defn import-users [users]
+  (dofor [u :in users :let [user (db-customer-to-map u)
+                            user-email (get user :user_email)]]
+         (if (int? (php/email_exists user-email))
+           (println "Skip existing user: " user-email)
+           (do (println "Importing user: " user-email)
+               (insert-user user)))))
+
 (comment
+
+  (import-users (take 5 source-customers))
+
   (insert-user user)
 
   (get (get user :user_meta) :wp_capabilities)
   (get user :first_name)
 
   (def user (db-customer-to-map (second source-customers)))
-  (wp/email-exists? "foo")
+
 
 
   (count source-customers)
