@@ -146,29 +146,21 @@ ORDER BY u.ID;"))
 ## -> {:ID 10 :user_login "foo.bar" :user_pass "\$P\$f00f0f0f0f0f000f0f0f0f00f0f" :user_nicename "foo-bar" :user_email "foo@example.com" :user_registered "2025-03-14 09:58:56" :display_name "Foo Bar" :user_meta {:wp_capabilities {:customer true} :wp_user_level "0" :description "" :last_update "1584178336" :_yoast_wpseo_profile_updated "1584177321" :icl_admin_language "fi" :billing_first_name "Foo" :billing_country "FI" :paying_customer "1" :_aw_user_registered "1" :nickname "foo.bar" :first_name "Foo" :session_tokens {:986da8s7d6f5a87s6d78987as6s67d89d8s76a6sd738417ff {:expiration 1585389210 :ip "123.234.345.456" :ua "Mozilla/5.0 (iPhone; CPU iPhone OS 13_3_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/13.0.5 Mobile/15E148 Safari/604.1" :login 15841321234}} :shipping_method "" :billing_last_name "Bar" :last_name "Bar" :billing_email "foo@example.com" :itsec_user_activity_last_seen "15846654321" :admin_color "fresh" :icl_admin_language_migrated_to_wp47 "1" :show_admin_bar_front "true" :billing_city "Helsinki" :syntax_highlighting "true" :locale "fi" :use_ssl "0" :wp_nav_menu_recently_edited "2" :comment_shortcuts "false" :billing_address_1 "Poste Restante" :billing_phone "1234567890" :billing_postcode "00100" :rich_editing "true" :wc_last_active "1584654321" :_aw_persistent_language "fi" :_wpcw_subs_expired_check {:checked true :expires 1584704321} :itsec_user_activity_last_seen_notification_sent "1"}}
 
 ## TODO Make user configurable, not hardcoded
-(def metas-to-import
-  ["nickname" "first_name" "last_name" "description" "locale"
-   "last_update" "wc_last_active" "_woocommerce_tracks_anon_id"
-   "billing_first_name" "billing_last_name" "billing_company" "billing_address_1" "billing_address_2" "billing_city" "billing_postcode" "billing_country" "billing_state" "billing_phone" "billing_email"
-   "shipping_first_name" "shipping_last_name" "shipping_company" "shipping_address_1" "shipping_address_2" "shipping_city" "shipping_postcode" "shipping_country" "shipping_state" "shipping_phone"
-   ])
+(def user-metas-to-import
+  [:nickname :first_name :last_name :description :locale :last_update :wc_last_active :_woocommerce_tracks_anon_id
+   :billing_first_name :billing_last_name :billing_company :billing_address_1 :billing_address_2 :billing_city :billing_postcode :billing_country :billing_state :billing_phone :billing_email
+   :shipping_first_name :shipping_last_name :shipping_company :shipping_address_1 :shipping_address_2 :shipping_city :shipping_postcode :shipping_country :shipping_state :shipping_phone])
 
 (defn insert-user [user]
-  (let [orig-meta (get user :user_meta)
-        default-meta {"legacy_user_id" (get user :ID)}
-        ## migrated-meta (select-keys orig-meta metas-to-import)
-        user-meta (for [k-str :in metas-to-import :reduce [acc default-meta]
-                        :let [orig-value (get orig-meta (keyword k-str))]]
-                    (if orig-value (put acc k-str orig-value) acc))
-        data {"user_login" (get user :user_login)
-              "user_pass" (get user :user_pass)
-              "user_nicename" (get user :user_nicename)
-              "user_email" (get user :user_email)
-              "user_registered" (get user :user_registered)
-              "display_name" (get user :display_name)
-              "meta_input" user-meta
-              "role" "customer"}]
-    (php/wp_insert_user (phel->php data))))
+  (let [migrated-meta   (select-keys (get user :user_meta) user-metas-to-import)
+        additional-meta {:legacy_user_id (get user :ID)}
+
+        migrated-data   (select-keys user [:user_login :user_pass :user_nicename
+                                           :user_email :user_registered :display_name])
+        additional-data {:role       "customer"
+                         :meta_input (merge migrated-meta additional-meta)}]
+
+    (php wp_insert_user (merge migrated-data additional-data))))
 
 (defn migrate-users
   "Recreate users from remote site."
@@ -315,7 +307,7 @@ ORDER BY u.ID;"))
   (println (count (keys (deref source-memberships-by-uid))) "users with active memberships"))
 
 (comment
-  (migrate-users [(get (deref source-customers) 4)])
+  (migrate-users [(get (deref source-customers) 6)])
 
   (migrate-memberships (select-keys (deref source-memberships-by-uid) [3097]))  #  3097 4878 4846
   (keys (deref source-memberships-by-uid))
