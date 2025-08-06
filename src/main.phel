@@ -237,8 +237,16 @@ ORDER BY u.ID;"))
 (def source-memberships-by-uid (var nil)) # [{legacy-uid<int> [m*]}]
 (def source-customers       (var nil))
 
-## (defn user-has-membership-for-plan-id [uid plan-id]
-##   )
+(defn user-has-membership-for-plan-id? [uid plan-id]
+  (let [existing-memberships  # [plan-id<int>*]
+        (->> (php get_posts {:author      uid
+                             :post_type   "wc_user_membership"
+                             :numberposts -1
+                             :post_status "wcm-active"
+                             :post_parent plan-id})
+             (map |(php/-> $ post_parent))
+             (map php/intval))]
+    (contains-value? existing-memberships plan-id)))
 
 (defn insert-user-membership
   "Adds membership for user, skipping if it as been previously created.
@@ -250,21 +258,11 @@ ORDER BY u.ID;"))
          :post_parent source-membership-plan-id
          :post_meta {:_start_date start-date
                      :_end_date   end-date}} source-membership
-        target-membership-plan-id (get membership-plan-mapping source-membership-plan-id)
-        existing-memberships  # [plan-id<int>*]
-        (->> (php get_posts {:author      target-uid
-                            :post_type   "wc_user_membership"
-                            :numberposts -1
-                            :post_status "wcm-active"
-                            :post_parent target-membership-plan-id})
-             (map |(php/-> $ post_parent))
-             (map php/intval))]
-
-    (println existing-memberships)
+        target-membership-plan-id (get membership-plan-mapping source-membership-plan-id)]
 
     (cond
       ## Check for existing membership
-      (contains-value? existing-memberships target-membership-plan-id)
+      (user-has-membership-for-plan-id? target-uid target-membership-plan-id)
       (do (println "Skip duplicate"
                    "for User" target-uid "Plan ID" target-membership-plan-id
                    "source-membership-id" source-membership-id))
