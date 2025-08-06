@@ -1,8 +1,8 @@
 (ns woocommerce-memberships-migrator\main
-  (:require phel\pdo :as pdo)
-  (:require phel\str :as str)
+  (:require phel\pdo)
+  (:require phel\str)
   (:require phel\trace :refer [dotrace dbg])
-  (:require woocommerce-memberships-migrator\lib\wp :as wp))
+  (:require woocommerce-memberships-migrator\lib\wp))
 
 (def remote-db (var nil))
 

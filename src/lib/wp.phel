@@ -1,7 +1,7 @@
 (ns woocommerce-memberships-migrator\lib\wp
-  (:require phel\str :as str)
-  (:require phel\pdo :as pdo)
-  (:require phel\pdo\statement :as statement))
+  (:require phel\str)
+  (:require phel\pdo)
+  (:require phel\pdo\statement))
 
 ### General Phel functions for WP / PHP API's
 
