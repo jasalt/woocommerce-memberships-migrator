@@ -237,12 +237,8 @@ ORDER BY u.ID;"))
 (def source-memberships-by-uid (var nil)) # [{legacy-uid<int> [m*]}]
 (def source-customers       (var nil))
 
-## (php/var_dump (first (php get_posts
-##      {:author 4805
-##       :post_type "wc_user_membership"
-##       :numberposts -1
-##       :post_status "wcm-active"
-##       :meta_query ["legacy_membership_id" 34443]})))
+## (defn user-has-membership-for-plan-id [uid plan-id]
+##   )
 
 (defn insert-user-membership
   "Adds membership for user, skipping if it as been previously created.
@@ -254,18 +250,24 @@ ORDER BY u.ID;"))
          :post_parent source-membership-plan-id
          :post_meta {:_start_date start-date
                      :_end_date   end-date}} source-membership
-        existing-memberships
-        (php get_posts {:author      target-uid
-                        :post_type   "wc_user_membership"
-                        :numberposts -1
-                        :post_status "wcm-active"
-                        :meta_query  [{"legacy_membership_id" source-membership-id}]})]
+        target-membership-plan-id (get membership-plan-mapping source-membership-plan-id)
+        existing-memberships  # [plan-id<int>*]
+        (->> (php get_posts {:author      target-uid
+                            :post_type   "wc_user_membership"
+                            :numberposts -1
+                            :post_status "wcm-active"
+                            :post_parent target-membership-plan-id})
+             (map |(php/-> $ post_parent))
+             (map php/intval))]
+
+    (println existing-memberships)
 
     (cond
       ## Check for existing membership
-      (not (empty? existing-memberships))
-      (println "Skip importing duplicate membership for legacy_membership_id"
-               source-membership-id)
+      (contains-value? existing-memberships target-membership-plan-id)
+      (do (println "Skip duplicate"
+                   "for User" target-uid "Plan ID" target-membership-plan-id
+                   "source-membership-id" source-membership-id))
 
       ## Validate
       (or (not= post-type "wc_user_membership") (not= post-status "wcm-active"))
@@ -277,7 +279,7 @@ ORDER BY u.ID;"))
       (let [orig-data (select-keys source-membership
                                    [:post_date :post_date_gmt :post_type :post_status])
             new-data {:post_author target-uid
-                      :post_parent (get membership-plan-mapping source-membership-plan-id)
+                      :post_parent target-membership-plan-id
                       :meta_input {:_start_date start-date
                                    :_end_date end-date
                                    :legacy_membership_id source-membership-id}}]
@@ -316,7 +318,9 @@ ORDER BY u.ID;"))
   (println (count (keys (deref source-memberships-by-uid))) "users with active memberships"))
 
 (comment
-  (migrate-memberships (select-keys (deref source-memberships-by-uid) [4825]))  #  3097 4878 4846
+  (migrate-memberships (select-keys (deref source-memberships-by-uid) [3097]))  #  3097 4878 4846
+
+  (migrate-memberships (deref source-memberships-by-uid))
 
   (migrate-users (take 10 (deref source-customers)))
 
@@ -336,6 +340,13 @@ ORDER BY u.ID;"))
 
   (def user (db-customer-to-map (first source-customers)))
   (import-user user)
+
+  (->> (php get_posts {:post_type   "wc_user_membership"
+                       :numberposts -1
+                       :post_status "wcm-active"})
+       (map |(php/-> $ post_author))
+       (map php/intval)
+       )
 
 
   ## Misc
