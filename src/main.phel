@@ -1,7 +1,17 @@
 (ns woocommerce-memberships-migrator\main
   (:require phel\pdo :as pdo)
   (:require phel\str :as str)
+  (:require phel\trace :refer [dotrace dbg])
   (:require woocommerce-memberships-migrator\lib\wp :as wp))
+
+(def remote-db (var nil))
+
+(defn select-keys
+  "TODO PR"
+  [m ks]
+  (for [[k v] :pairs m :reduce [acc {}]]
+    (if (contains-value? ks k)
+      (put acc k v) acc)))
 
 (defmacro read-config
   "Read PHP constant or throw exception if not set.
@@ -13,19 +23,21 @@
        (or ,default
            (php/new \RuntimeException (str "PHP constant " ,name " is required but not defined."))))))
 
+(defmacro php
+  "Calls PHP function with given arguments. Converts arguments to PHP
+  data structures using `phel->php` and conversely returned PHP data structure
+  back to Phel with `php->phel`.
+  TODO could do conversion ONLY when needed."
+  [php-function & args]
+  (let [php-function-symbol (symbol (str "php/" php-function))
+        converted-args (map (fn [arg] `(phel->php ,arg)) args)]
+    `(php->phel (,php-function-symbol ,@converted-args))))
+
 (def db-prefix (read-config "SOURCE_MYSQL_DB_PREFIX"))
 
 (def db-connection-string (str "mysql:host=" (read-config "SOURCE_MYSQL_HOST")
                                ";dbname="  (read-config "SOURCE_MYSQL_DB_NAME")
                                ";charset=" (read-config "SOURCE_MYSQL_DB_CHARSET")))
-
-(def remote-db
-  (let [conn (pdo/connect db-connection-string
-                          (read-config "SOURCE_MYSQL_USER")
-                          (read-config "SOURCE_MYSQL_PASSWORD"))]
-    (pdo/exec conn (str "SET NAMES " (read-config "SOURCE_MYSQL_DB_CHARSET")
-                        " COLLATE "  (read-config "SOURCE_MYSQL_DB_COLLATION")))
-    conn))
 
 ## TODO substitutions should be user configurable not hard coded
 (def de-mojibake-substitutions {"Ã¶" "ö"
@@ -53,7 +65,7 @@ GROUP BY u.ID, u.user_login, u.user_email, u.user_registered, u.display_name
 ORDER BY u.ID;"))
 
 (defn get-source-customers []
-  (let [customers (wp/pdo-fetch-all remote-db sql-customer-users)]
+  (let [customers (wp/pdo-fetch-all (deref remote-db) sql-customer-users)]
     customers))
 
 (defn standardize-keys
@@ -168,7 +180,7 @@ ORDER BY u.ID;"))
         GROUP BY p.ID;"))
 
 (defn get-source-user-memberships []
-  (wp/pdo-fetch-all remote-db sql-user-memberships))
+  (wp/pdo-fetch-all (deref remote-db) sql-user-memberships))
 
 ## TODO make user configurable instead of hard coded
 ## Defines mapping from old source site membership-plan post_id to new site
@@ -182,10 +194,12 @@ ORDER BY u.ID;"))
   (str "SELECT * FROM " db-prefix "posts WHERE post_type = \"wc_membership_plan\""))
 
 (defn get-source-membership-plans []
-  (wp/pdo-fetch-all remote-db sql-membership-plans))
+  (wp/pdo-fetch-all (deref remote-db) sql-membership-plans))
 
-(defn db-memberships-to-map [m]
-  (for [db-membership :in db-user-memberships :reduce [acc {}]]
+(defn db-memberships-to-map
+  "Returns map of memberships by uid"
+  [m]
+  (for [db-membership :in m :reduce [acc {}]]
            (let [post_meta (-> (get db-membership :post_meta)
                                (decode-sql-json-metas)
                                (de-mojibake-values de-mojibake-substitutions))
@@ -196,65 +210,105 @@ ORDER BY u.ID;"))
                (put acc uid (push user-memberships membership))  # append if user has many
                (put acc uid [membership])))))
 
-#### General process
+(defn migrate-users
+  "Recreate users from remote site."
+  [users]
+  (let [print-user (fn [email uid legacy-uid]
+                     (println (str/pad-right email 32)
+                              (str/pad-right (str "ID: " uid) 12)
+                              "Legacy ID:" legacy-uid))]
 
-## 1) Read user memberships {user_id: [membership*]}
-## 2) Read users
-## 3) Process users:
-## - Migrate user
-## - Migrate user memberships
+    (dofor [u :in users :let [user         (db-customer-to-map u)
+                              email        (get user :user_email)
+                              source-uid   (get user :ID)
+                              existing-uid (php/email_exists email)]]
 
-(defn process-users [users memberships]
-  (dofor [u :in users :let [user (db-customer-to-map u)
-                            user-email (get user :user_email)]]
+           (if (int? existing-uid)
+             (do
+               (print "Existing user: ")
+               (print-user email existing-uid source-uid))
 
-         ## TODO UID for new or existing user
-         (if (int? (php/email_exists user-email))
-           (println "Existing user: " user-email)
-           (do (println "Importing user: " user-email)
-               (insert-user user)))
+             (let [new-uid (insert-user user)]  ## TODO test creation
+               (print "Created user: ")
+               (print-user email new-uid source-uid))))))
 
-         ## TODO Migrate user memberships
-         (dofor [membership :in (get uid memberships) :let [plan-id (get membership :post_parent)]]
-                ## Check if user has membership with plan-id and create if not existing
-                )
+(def source-db-memberships  (var nil))
+(def source-memberships-by-uid (var nil)) # [{legacy-uid<int> [m*]}]
+(def source-customers       (var nil))
 
-         )
+(defn insert-user-membership
+  "Adds membership for user, skipping if it as been previously created.
+   Old membership ID is stored in `legacy_user_membership_id` usermeta."
+  [target-uid source-membership]  # [int m]
+  (let [source-membership-id (dbg (get source-membership :ID))
+        users-existing-memberships
+        (php get_posts
+             {:post_type "wc_user_membership"
+              :numberposts -1
+              :author target-uid
+              :meta_query [{"key" "legacy_user_membership_id"
+                            "value" source-membership-id
+                            "compare" "="}]})]
+    (if (empty? users-existing-memberships)
+      (println "Importing membership" source-membership-id "for user" target-uid)
+      (println "Skip importing membership" source-membership-id)
+      )
+    )
   )
 
+(defn migrate-memberships [memberships-by-uid]  # [{legacy-uid<int> [m*]}]
+  (dofor [[source-uid memberships] :pairs memberships-by-uid
+          :let [target-user (first (php get_users {:meta_key "legacy_user_id"
+                                                   :meta_value source-uid
+                                                   :meta_compare "="}))]]
+         (if target-user
+           (for [membership :in memberships]
+             (insert-user-membership (php/-> target-user ID) membership))
+           (println "Target user not found with legacy id" source-uid))))
+
+(defn load-data []
+  (let [conn (pdo/connect db-connection-string
+                          (read-config "SOURCE_MYSQL_USER")
+                          (read-config "SOURCE_MYSQL_PASSWORD"))]
+    (pdo/exec conn (str "SET NAMES " (read-config "SOURCE_MYSQL_DB_CHARSET")
+                        " COLLATE "  (read-config "SOURCE_MYSQL_DB_COLLATION")))
+    (set! remote-db conn))
+
+  (when-not (deref remote-db) (throw (php/new \RuntimeException "Unable to connect to database")))
+  (println "Loading data from source database")
+
+  (set! source-customers (get-source-customers))
+  (println "Read" (count (deref source-customers)) "customers")
+
+  (set! source-db-memberships (get-source-user-memberships))
+  (println "Read" (count (deref source-db-memberships)) "active user memberships")
+
+  (set! source-memberships-by-uid (db-memberships-to-map (deref source-db-memberships)))
+  (println (count (keys (deref source-memberships-by-uid))) "users with active memberships"))
+
 (comment
-  (def db-memberships (get-source-user-memberships))
-  (count db-memberships)
+  (migrate-memberships (select-keys (deref source-memberships-by-uid) [4825]))  #  3097 4878 4846 4802 3074 4130 4162 4258 2210 4322
 
-  ## (let [membership (peek db-user-memberships)]
-  ##   (put membership :post_meta (-> (get membership :post_meta)
-  ##                                  (decode-sql-json-metas)
-  ##                                  (de-mojibake-values de-mojibake-substitutions))))
+  (migrate-users (take 10 (deref source-customers)))
 
-  (def memberships (db-memberships-to-map db-memberships))
+  (keys (deref source-memberships-by-uid))
 
-  (keys memberships)
-  (count (get memberships 4467))
-  (first (get memberships 4467))
-  (first
-        (for [membership :in db-user-memberships :reduce [acc {}] :let [uid (get membership :post_author)]]
-          (put acc uid membership)
-          )
-        )
 
+  (migrate-users (deref source-customers))
+
+  (load-data)
+
+  (first (deref source-db-memberships))
   ## -> {:menu_order 0 :post_name "34950" :post_excerpt "" :post_title "" :post_date_gmt "2025-08-04 08:00:36" :post_modified "2025-08-04 11:00:36" :pinged "" :comment_status "open" :post_type "wc_user_membership" :post_author 4925 :post_parent 3130 :post_content_filtered "" :to_ping "" :ID 34950 :guid "https://example.com/?post_type=wc_user_membership&p=34950" :post_modified_gmt "2025-08-04 08:00:36" :ping_status "closed" :post_meta {:_wpml_word_count "0" :_product_id "3132" :_order_id "34949" :_start_date "2025-08-04 08:00:36" :_end_date "2026-08-04 08:00:36"} :post_date "2025-08-04 11:00:36" :comment_count 1 :post_password "um_12354534a41f68a" :post_mime_type "" :post_content "" :post_status "wcm-active"}
 
-
   ## Users
-  (def source-customers (get-source-customers))
 
-  (count source-customers)
+  (get (deref source-memberships-by-uid) 20)
 
-  (import-users (take 5 source-customers))
+  (keys  (deref source-memberships-by-uid))
 
   (def user (db-customer-to-map (first source-customers)))
   (import-user user)
-
 
 
   ## Misc
