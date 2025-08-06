@@ -155,9 +155,8 @@ ORDER BY u.ID;"))
 
 (defn insert-user [user]
   (let [orig-meta (get user :user_meta)
-        default-meta {(str wp/wp-prefix "capabilities") (php/serialize (phel->php {"customer" true}))
-                      (str wp/wp-prefix "user_level") "0"
-                      "legacy_user_id" (get user :ID)}
+        default-meta {"legacy_user_id" (get user :ID)}
+        ## migrated-meta (select-keys orig-meta metas-to-import)
         user-meta (for [k-str :in metas-to-import :reduce [acc default-meta]
                         :let [orig-value (get orig-meta (keyword k-str))]]
                     (if orig-value (put acc k-str orig-value) acc))
@@ -167,50 +166,9 @@ ORDER BY u.ID;"))
               "user_email" (get user :user_email)
               "user_registered" (get user :user_registered)
               "display_name" (get user :display_name)
-              "meta_input" user-meta}]
+              "meta_input" user-meta
+              "role" "customer"}]
     (php/wp_insert_user (phel->php data))))
-
-(def sql-user-memberships
-  (str "SELECT
-        p.*,
-        JSON_OBJECTAGG(pm.meta_key, pm.meta_value) AS post_meta
-        FROM " db-prefix "posts p
-        LEFT JOIN " db-prefix "postmeta pm ON p.ID = pm.post_id
-        WHERE p.post_status LIKE '%wcm-active%'
-        AND p.post_type = 'wc_user_membership'
-        GROUP BY p.ID;"))
-
-(defn get-source-user-memberships []
-  (wp/pdo-fetch-all (deref remote-db) sql-user-memberships))
-
-## TODO make user configurable instead of hard coded
-## Defines mapping from old source site membership-plan post_id to new site
-(def membership-plan-mapping (php->phel (read-config "MEMBERSHIP_PLAN_MIGRATION_MAPPING")))
-## {old-plan-id<int> new-plan-id<int>}
-
-## TODO Verify id's with target site db
-## (def posts (php/get_posts
-##             (to-php-array {"post_type" "wc_membership_plan"})))
-
-(def sql-membership-plans
-  (str "SELECT * FROM " db-prefix "posts WHERE post_type = \"wc_membership_plan\""))
-
-(defn get-source-membership-plans []
-  (wp/pdo-fetch-all (deref remote-db) sql-membership-plans))
-
-(defn db-memberships-to-map
-  "Returns map of memberships by uid"
-  [m]
-  (for [db-membership :in m :reduce [acc {}]]
-           (let [post_meta (-> (get db-membership :post_meta)
-                               (decode-sql-json-metas)
-                               (de-mojibake-values de-mojibake-substitutions))
-                 membership (put db-membership :post_meta post_meta)
-                 uid (get membership :post_author)
-                 user-memberships (get acc uid)]
-             (if user-memberships
-               (put acc uid (push user-memberships membership))  # append if user has many
-               (put acc uid [membership])))))
 
 (defn migrate-users
   "Recreate users from remote site."
@@ -233,6 +191,46 @@ ORDER BY u.ID;"))
              (let [new-uid (insert-user user)]  ## TODO test creation
                (print "Created user: ")
                (print-user email new-uid source-uid))))))
+
+(def sql-user-memberships
+  (str "SELECT
+        p.*,
+        JSON_OBJECTAGG(pm.meta_key, pm.meta_value) AS post_meta
+        FROM " db-prefix "posts p
+        LEFT JOIN " db-prefix "postmeta pm ON p.ID = pm.post_id
+        WHERE p.post_status LIKE '%wcm-active%'
+        AND p.post_type = 'wc_user_membership'
+        GROUP BY p.ID;"))
+
+(defn get-source-user-memberships []
+  (wp/pdo-fetch-all (deref remote-db) sql-user-memberships))
+
+## TODO make user configurable instead of hard coded
+## Defines mapping from old source site membership-plan post_id to new site
+(def membership-plan-mapping (php->phel (read-config "MEMBERSHIP_PLAN_MIGRATION_MAPPING")))
+## {old-plan-id<int> new-plan-id<int>}
+
+## TODO Verify id's with target site db
+
+(def sql-membership-plans
+  (str "SELECT * FROM " db-prefix "posts WHERE post_type = \"wc_membership_plan\""))
+
+(defn get-source-membership-plans []
+  (wp/pdo-fetch-all (deref remote-db) sql-membership-plans))
+
+(defn db-memberships-to-map
+  "Returns map of memberships by uid"
+  [m]
+  (for [db-membership :in m :reduce [acc {}]]
+           (let [post_meta (-> (get db-membership :post_meta)
+                               (decode-sql-json-metas)
+                               (de-mojibake-values de-mojibake-substitutions))
+                 membership (put db-membership :post_meta post_meta)
+                 uid (get membership :post_author)
+                 user-memberships (get acc uid)]
+             (if user-memberships
+               (put acc uid (push user-memberships membership))  # append if user has many
+               (put acc uid [membership])))))
 
 (def source-db-memberships  (var nil))
 (def source-memberships-by-uid (var nil)) # [{legacy-uid<int> [m*]}]
@@ -317,17 +315,19 @@ ORDER BY u.ID;"))
   (println (count (keys (deref source-memberships-by-uid))) "users with active memberships"))
 
 (comment
+  (migrate-users [(get (deref source-customers) 4)])
+
   (migrate-memberships (select-keys (deref source-memberships-by-uid) [3097]))  #  3097 4878 4846
-
-  (migrate-memberships (deref source-memberships-by-uid))
-
-  (migrate-users (take 10 (deref source-customers)))
-
   (keys (deref source-memberships-by-uid))
 
-  (migrate-users (deref source-customers))
-  (load-data)
 
+  ## Main logic
+  (load-data)
+  (migrate-users (deref source-customers))
+  (migrate-memberships (deref source-memberships-by-uid))
+
+
+  ## Memberships
   (first (deref source-db-memberships))
   ## -> {:menu_order 0 :post_name "34950" :post_excerpt "" :post_title "" :post_date_gmt "2025-08-04 08:00:36" :post_modified "2025-08-04 11:00:36" :pinged "" :comment_status "open" :post_type "wc_user_membership" :post_author 4925 :post_parent 3130 :post_content_filtered "" :to_ping "" :ID 34950 :guid "https://example.com/?post_type=wc_user_membership&p=34950" :post_modified_gmt "2025-08-04 08:00:36" :ping_status "closed" :post_meta {:_wpml_word_count "0" :_product_id "3132" :_order_id "34949" :_start_date "2025-08-04 08:00:36" :_end_date "2026-08-04 08:00:36"} :post_date "2025-08-04 11:00:36" :comment_count 1 :post_password "um_12354534a41f68a" :post_mime_type "" :post_content "" :post_status "wcm-active"}
   (get (deref source-memberships-by-uid) 20)
