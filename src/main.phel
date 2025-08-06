@@ -185,6 +185,7 @@ ORDER BY u.ID;"))
 ## TODO make user configurable instead of hard coded
 ## Defines mapping from old source site membership-plan post_id to new site
 (def membership-plan-mapping (php->phel (read-config "MEMBERSHIP_PLAN_MIGRATION_MAPPING")))
+## {old-plan-id<int> new-plan-id<int>}
 
 ## TODO Verify id's with target site db
 ## (def posts (php/get_posts
@@ -236,25 +237,53 @@ ORDER BY u.ID;"))
 (def source-memberships-by-uid (var nil)) # [{legacy-uid<int> [m*]}]
 (def source-customers       (var nil))
 
+## (php/var_dump (first (php get_posts
+##      {:author 4805
+##       :post_type "wc_user_membership"
+##       :numberposts -1
+##       :post_status "wcm-active"
+##       :meta_query ["legacy_membership_id" 34443]})))
+
 (defn insert-user-membership
   "Adds membership for user, skipping if it as been previously created.
-   Old membership ID is stored in `legacy_user_membership_id` usermeta."
+   Old membership ID is stored in `legacy_membership_id` usermeta."
   [target-uid source-membership]  # [int m]
-  (let [source-membership-id (dbg (get source-membership :ID))
+  (let [{:ID          source-membership-id
+         :post_type   post-type
+         :post_status post-status
+         :post_parent source-membership-plan-id
+         :post_meta {:_start_date start-date
+                     :_end_date   end-date}} source-membership
         users-existing-memberships
-        (php get_posts
-             {:post_type "wc_user_membership"
-              :numberposts -1
-              :author target-uid
-              :meta_query [{"key" "legacy_user_membership_id"
-                            "value" source-membership-id
-                            "compare" "="}]})]
-    (if (empty? users-existing-memberships)
-      (println "Importing membership" source-membership-id "for user" target-uid)
-      (println "Skip importing membership" source-membership-id)
-      )
-    )
-  )
+        (php get_posts {:author target-uid
+                        :post_type "wc_user_membership"
+                        :numberposts -1
+                        :post_status "wcm-active"
+                        :meta_query [{"legacy_membership_id" source-membership-id}]})]
+
+    ## Check for existing membership
+    (if-not (empty? users-existing-memberships)
+      (println "Skip importing duplicate membership for legacy_membership_id"
+               source-membership-id)
+
+      ## Validate
+      (if-not (and (= post-type "wc_user_membership")
+                   (= post-status "wcm-active"))
+        (throw
+         (php/new \InvalidArgumentException
+                  (str "Invalid post_type or post_status for membership with id "
+                       source-membership-id)))
+
+        ## Add new
+        (let [orig-data (select-keys source-membership
+                                     [:post_date :post_date_gmt :post_type :post_status])
+              new-data {:post_author target-uid
+                        :post_parent (get membership-plan-mapping source-membership-plan-id)
+                        :meta_input {:_start_date start-date
+                                     :_end_date end-date
+                                     :legacy_membership_id source-membership-id}}]
+          (println "Importing membership" source-membership-id "for user" target-uid)
+          (php wp_insert_post (merge orig-data new-data)))))))
 
 (defn migrate-memberships [memberships-by-uid]  # [{legacy-uid<int> [m*]}]
   (dofor [[source-uid memberships] :pairs memberships-by-uid
@@ -287,15 +316,13 @@ ORDER BY u.ID;"))
   (println (count (keys (deref source-memberships-by-uid))) "users with active memberships"))
 
 (comment
-  (migrate-memberships (select-keys (deref source-memberships-by-uid) [4825]))  #  3097 4878 4846 4802 3074 4130 4162 4258 2210 4322
+  (migrate-memberships (select-keys (deref source-memberships-by-uid) [4825]))  #  3097 4878 4846
 
   (migrate-users (take 10 (deref source-customers)))
 
   (keys (deref source-memberships-by-uid))
 
-
   (migrate-users (deref source-customers))
-
   (load-data)
 
   (first (deref source-db-memberships))
