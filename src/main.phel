@@ -40,8 +40,9 @@
                                ";charset=" (read-config "SOURCE_MYSQL_DB_CHARSET")))
 
 ## TODO substitutions should be user configurable not hard coded
-(def de-mojibake-substitutions {"Ã¶" "ö"
-                                "Ã¤" "ä"})
+(def de-mojibake-substitutions {"Ã¶" "ö" "Ã–" "Ö"
+                                "Ã¤" "ä" "Ã„" "Ä"
+                                "Ã¥" "å" "Ã©" "é"})
 
 (def sql-customer-users
   (str "SELECT
@@ -329,23 +330,12 @@ ORDER BY u.ID;"))
 
   (first (deref source-db-memberships))
   ## -> {:menu_order 0 :post_name "34950" :post_excerpt "" :post_title "" :post_date_gmt "2025-08-04 08:00:36" :post_modified "2025-08-04 11:00:36" :pinged "" :comment_status "open" :post_type "wc_user_membership" :post_author 4925 :post_parent 3130 :post_content_filtered "" :to_ping "" :ID 34950 :guid "https://example.com/?post_type=wc_user_membership&p=34950" :post_modified_gmt "2025-08-04 08:00:36" :ping_status "closed" :post_meta {:_wpml_word_count "0" :_product_id "3132" :_order_id "34949" :_start_date "2025-08-04 08:00:36" :_end_date "2026-08-04 08:00:36"} :post_date "2025-08-04 11:00:36" :comment_count 1 :post_password "um_12354534a41f68a" :post_mime_type "" :post_content "" :post_status "wcm-active"}
-
-  ## Users
-
   (get (deref source-memberships-by-uid) 20)
 
-  (keys  (deref source-memberships-by-uid))
 
+  ## Users
   (def user (db-customer-to-map (first source-customers)))
   (import-user user)
-
-  (->> (php get_posts {:post_type   "wc_user_membership"
-                       :numberposts -1
-                       :post_status "wcm-active"})
-       (map |(php/-> $ post_author))
-       (map php/intval)
-       )
-
 
   ## Misc
   (def membership-plans (get-source-membership-plans))
