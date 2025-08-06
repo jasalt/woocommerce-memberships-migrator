@@ -254,36 +254,36 @@ ORDER BY u.ID;"))
          :post_parent source-membership-plan-id
          :post_meta {:_start_date start-date
                      :_end_date   end-date}} source-membership
-        users-existing-memberships
-        (php get_posts {:author target-uid
-                        :post_type "wc_user_membership"
+        existing-memberships
+        (php get_posts {:author      target-uid
+                        :post_type   "wc_user_membership"
                         :numberposts -1
                         :post_status "wcm-active"
-                        :meta_query [{"legacy_membership_id" source-membership-id}]})]
+                        :meta_query  [{"legacy_membership_id" source-membership-id}]})]
 
-    ## Check for existing membership
-    (if-not (empty? users-existing-memberships)
+    (cond
+      ## Check for existing membership
+      (not (empty? existing-memberships))
       (println "Skip importing duplicate membership for legacy_membership_id"
                source-membership-id)
 
       ## Validate
-      (if-not (and (= post-type "wc_user_membership")
-                   (= post-status "wcm-active"))
-        (throw
-         (php/new \InvalidArgumentException
-                  (str "Invalid post_type or post_status for membership with id "
-                       source-membership-id)))
+      (or (not= post-type "wc_user_membership") (not= post-status "wcm-active"))
+      (throw (php/new \InvalidArgumentException
+                      (str "Invalid post_type or post_status for membership with id "
+                           source-membership-id)))
 
-        ## Add new
-        (let [orig-data (select-keys source-membership
-                                     [:post_date :post_date_gmt :post_type :post_status])
-              new-data {:post_author target-uid
-                        :post_parent (get membership-plan-mapping source-membership-plan-id)
-                        :meta_input {:_start_date start-date
-                                     :_end_date end-date
-                                     :legacy_membership_id source-membership-id}}]
-          (println "Importing membership" source-membership-id "for user" target-uid)
-          (php wp_insert_post (merge orig-data new-data)))))))
+      ## Add new
+      (let [orig-data (select-keys source-membership
+                                   [:post_date :post_date_gmt :post_type :post_status])
+            new-data {:post_author target-uid
+                      :post_parent (get membership-plan-mapping source-membership-plan-id)
+                      :meta_input {:_start_date start-date
+                                   :_end_date end-date
+                                   :legacy_membership_id source-membership-id}}]
+
+        (println "Importing membership" source-membership-id "for user" target-uid)
+        (php wp_insert_post (merge orig-data new-data))))))
 
 (defn migrate-memberships [memberships-by-uid]  # [{legacy-uid<int> [m*]}]
   (dofor [[source-uid memberships] :pairs memberships-by-uid
