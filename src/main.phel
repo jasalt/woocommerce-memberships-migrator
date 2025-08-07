@@ -155,12 +155,18 @@ ORDER BY u.ID;"))
   (let [migrated-meta   (select-keys (get user :user_meta) user-metas-to-import)
         additional-meta {:legacy_user_id (get user :ID)}
 
-        migrated-data   (select-keys user [:user_login :user_pass :user_nicename
-                                           :user_email :user_registered :display_name])
-        additional-data {:role       "customer"
+        migrated-data   (select-keys user [:user_login :user_nicename :user_email
+                                           :user_registered :display_name])
+        additional-data {:user_pass ""  # random pass, gets updated with original hash
+                         :role       "customer"
                          :meta_input (merge migrated-meta additional-meta)}]
 
-    (php wp_insert_user (merge migrated-data additional-data))))
+    (let [new-uid (php wp_insert_user (merge migrated-data additional-data))]
+      (when (int? new-uid)
+        (wp/db-update! (php/-> wp/wpdb users)
+                       new-uid
+                       {:user_pass (get user :user_pass)})
+      new-uid))))
 
 (defn migrate-users
   "Recreate users from remote site."
@@ -312,7 +318,8 @@ ORDER BY u.ID;"))
   (migrate-memberships (deref source-memberships-by-uid)))
 
 (comment
-  (migrate-users [(get (deref source-customers) 6)])
+  (migrate-users [(get (deref source-customers) 4894)])
+  (php clean_user_cache 4915)
 
   (migrate-memberships (select-keys (deref source-memberships-by-uid) [3097]))  #  3097 4878 4846
   (keys (deref source-memberships-by-uid))
