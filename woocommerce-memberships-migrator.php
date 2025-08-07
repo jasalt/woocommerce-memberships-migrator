@@ -16,7 +16,10 @@ if (isset($PHP_SELF) && $PHP_SELF !== "./vendor/bin/phel"){
 	// Initialize Phel environment in regular WP plugin context. This can be
 	// nalso narrowed to only specific routes or conditions to avoid it's
 	// runtime overhead where it's not needed.
-	Phel::run($projectRootDir, 'phel-wp-plugin\main');
+
+	// TODO enable if using as plugin
+	// Phel::run($projectRootDir, 'phel-wp-plugin\main');
+
 } else {
 	// Avoid re-initializing Phel environment during REPL session when requiring
 	// wp-load.php which initializes all plugins.

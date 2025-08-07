@@ -1,0 +1,4 @@
+(ns script\run
+  (:require woocommerce-memberships-migrator\main :refer [migrate-all]))
+
+(migrate-all)
