@@ -83,7 +83,7 @@
 
 (defn db-update! [table row-id data]
   (php/-> wpdb (update table
-                       (to-php-array data)             # fields to update
+                       (phel->php data)               # fields to update
                        (to-php-array {"id" row-id})))) # where clauses
 
 ## Casting from WPDB results (scrapped because PDO works better out-of-box)
