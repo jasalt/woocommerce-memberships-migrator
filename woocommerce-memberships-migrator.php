@@ -9,19 +9,34 @@ Author URI: https://codeberg.org/jasalt
 
 use Phel\Phel;
 
-$projectRootDir = __DIR__ . '/';
-require $projectRootDir . 'vendor/autoload.php';
 
 if (isset($PHP_SELF) && $PHP_SELF !== "./vendor/bin/phel"){
-	// Initialize Phel environment in regular WP plugin context. This can be
-	// nalso narrowed to only specific routes or conditions to avoid it's
-	// runtime overhead where it's not needed.
+	// Initialize Phel environment in regular WP plugin web request context.
+	// This can be also narrowed to only specific routes or conditions to avoid
+	// it's runtime overhead where it's not needed.
 
-	// TODO enable if using as plugin
+	// This "plugin" does have UI so this is discarded...
+	// $projectRootDir = __DIR__ . '/';
+	// require $projectRootDir . 'vendor/autoload.php';
+
 	// Phel::run($projectRootDir, 'phel-wp-plugin\main');
-
 } else {
-	// Avoid re-initializing Phel environment during REPL session when requiring
-	// wp-load.php which initializes all plugins.
-	print("Running REPL, skip running plugin Phel::run \n");
+	// Don't re-initialize Phel or run main namespace outside regular web request
+	// context e.g. when starting REPL session or running as WP-CLI command.
+	print("Skip running phel-wp-plugin\main outside web request context.\n");
+}
+
+/*
+ * Register WP-CLI command 'wp phel' running Phel namespace at `src/cli.phel`
+ * https://make.wordpress.org/cli/handbook/guides/commands-cookbook/
+ */
+if ( class_exists( 'WP_CLI' ) ) {
+	WP_CLI::add_command( 'migrate-memberships',
+						 function ( $args ){
+							 $projectRootDir = __DIR__ . '/';
+							 require $projectRootDir . 'vendor/autoload.php';
+
+							 Phel::run($projectRootDir, 'woocommerce-memberships-migrator\cli');
+							 WP_CLI::success( "Done!" );
+						 }, ['shortdesc' => 'Migrates users with memberships from remote site.']);
 }
