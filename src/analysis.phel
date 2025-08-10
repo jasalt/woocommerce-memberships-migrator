@@ -1,0 +1,85 @@
+(ns woocommerce-memberships-migrator\analysis
+  (:require woocommerce-memberships-migrator\lib\wp)
+  (:require woocommerce-memberships-migrator\main
+            :refer [read-config
+                    get-source-db-connection
+                    sql-customer-users])
+  (:require phel\trace :refer [dbg]))
+
+## Ad-hoc data analysis namespace for verifying migration is succeeded.
+## Left unfinished for now as comparing stats in WP Admin seem good enough.
+
+(def remote-db {:conn   (get-source-db-connection)
+                :prefix (read-config "SOURCE_MYSQL_DB_PREFIX")})
+(def local-db  {:conn   (wp/pdo-get-connection)
+                :prefix (wp/db-get-prefix)})
+
+(defn get-membership-ids [db]
+  (let [sql (str "SELECT ID FROM " (get db :prefix) "posts
+                  WHERE post_status LIKE '%wcm-active%'
+                  AND post_type = 'wc_user_membership'")
+        ids-res (wp/pdo-fetch-all (get db :conn) sql)
+        ids (for [m :in ids-res :reduce [acc (set)]]
+              (push acc (get m :ID)))]
+    ids))
+
+(defn get-user-ids [db]
+  (let [sql (sql-customer-users (get db :prefix))
+        ids-res (wp/pdo-fetch-all (get db :conn) sql)
+        ids (for [m :in ids-res :reduce [acc []]]
+              (push acc (get m :ID)))]
+    ids))
+
+(defn get-migrated-user-ids
+  "Returns user ids from remote system that have been migrated"
+  [db]
+  (let [sql (str "SELECT meta_value FROM " (get db :prefix) "postmeta
+                  WHERE meta_key LIKE 'legacy_user_id'")
+        ids-res (wp/pdo-fetch-all (get db :conn) sql)]
+    (for [m :in ids-res :reduce [acc (set)]]
+              (push acc (get m :ID)))))
+
+## Analysis queries
+
+(defn compare-membership-counts
+  "Count memberships in both remote and local system"
+  []
+  (let [remote-ids (get-membership-ids remote-db)
+        local-ids (get-membership-ids local-db)]
+    (println (count remote-ids) "remote user memberships and"
+             (count local-ids) "local user membership")
+    ## {:local-ids local-membership-ids :remote-ids remote-membership-ids}
+    ))
+
+
+## WIP
+
+## (defn verify-users-migrated []
+##   (let [original-uids (set (get-user-ids remote-db))
+##         migrated-uids
+##         (let [sql (str "SELECT meta_value FROM " (get local-db :prefix) "postmeta
+##                   WHERE meta_key LIKE 'legacy_membership_id'")
+##               ids-res (wp/pdo-fetch-all (get local-db :conn) sql)]
+##           (for [m :in ids-res :reduce [acc []]]
+##             (push acc (php/intval (get m :meta_value)))))]
+##     (difference (set original-uids) (set migrated-uids))
+##     )
+##   )
+
+
+## (defn get-migrated-membership-ids
+##   "Returns user ids from remote system that have been migrated"
+##   [db]
+##   nil
+##   )
+
+## (defn verify-user-memberships-migrated []
+##   (let [original-uids
+##         migrated-uids])
+##   )
+
+(comment
+
+  (compare-membership-counts)
+
+  )
