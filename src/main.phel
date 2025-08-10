@@ -44,7 +44,7 @@
                                 "Ã¤" "ä" "Ã„" "Ä"
                                 "Ã¥" "å" "Ã©" "é"})
 
-(def sql-customer-users
+(defn sql-customer-users [prefix]
   (str "SELECT
     u.ID,
     u.user_login,
@@ -54,19 +54,19 @@
     u.user_registered,
     u.display_name,
     JSON_OBJECTAGG(um.meta_key, um.meta_value) AS user_meta
-FROM " db-prefix "users u
-JOIN " db-prefix "usermeta um ON u.ID = um.user_id
+FROM " prefix "users u
+JOIN " prefix "usermeta um ON u.ID = um.user_id
 WHERE u.ID IN (
     SELECT user_id
-    FROM " db-prefix "usermeta
-    WHERE meta_key = '" db-prefix "capabilities'
+    FROM " prefix "usermeta
+    WHERE meta_key = '" prefix "capabilities'
     AND meta_value LIKE '%\"customer\";b:1;%'
 )
 GROUP BY u.ID, u.user_login, u.user_email, u.user_registered, u.display_name
 ORDER BY u.ID;"))
 
 (defn get-source-customers []
-  (let [customers (wp/pdo-fetch-all (deref remote-db) sql-customer-users)]
+  (let [customers (wp/pdo-fetch-all (deref remote-db) (sql-customer-users db-prefix))]
     customers))
 
 (defn standardize-keys
@@ -198,7 +198,7 @@ ORDER BY u.ID;"))
         LEFT JOIN " db-prefix "postmeta pm ON p.ID = pm.post_id
         WHERE p.post_status LIKE '%wcm-active%'
         AND p.post_type = 'wc_user_membership'
-        GROUP BY p.ID;"))
+        GROUP BY p.ID;"))  # GROUP BY is useless?
 
 (defn get-source-user-memberships []
   (wp/pdo-fetch-all (deref remote-db) sql-user-memberships))
@@ -292,13 +292,16 @@ ORDER BY u.ID;"))
              (insert-user-membership (php/-> target-user ID) membership))
            (println "Target user not found with legacy id" source-uid))))
 
-(defn load-data []
+(defn get-source-db-connection []
   (let [conn (pdo/connect db-connection-string
                           (read-config "SOURCE_MYSQL_USER")
                           (read-config "SOURCE_MYSQL_PASSWORD"))]
     (pdo/exec conn (str "SET NAMES " (read-config "SOURCE_MYSQL_DB_CHARSET")
                         " COLLATE "  (read-config "SOURCE_MYSQL_DB_COLLATION")))
-    (set! remote-db conn))
+    conn))
+
+(defn load-data []
+  (set! remote-db (get-source-db-connection))
 
   (when-not (deref remote-db) (throw (php/new \RuntimeException "Unable to connect to database")))
   (println "Loading data from source database")
