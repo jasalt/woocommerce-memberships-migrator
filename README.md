@@ -1,19 +1,24 @@
-Status: Work in progress.
-
-Migration tool for customer user account and membership data via MySQL database connection.
+WP-CLI migration tool for customer user account and membership data via MySQL database connection.
 
 Requires PHP8.3+ (Phel) and source MySQL server version MySQL 5.7.22+ or MariaDB 10.3+ (`JSON_OBJECTAGG()`).
 
-# Developer information
-WordPress plugin made with [Phel](https://phel-lang.org/) (functional Lisp-family language compiling to PHP), consult wp-phel-plugin repository for more info.
+Code provided as is without any warranties (MIT Licensed), contact for paid support & customization needs.
 
-Tool "pulls" customer data via MySQL connection from (remote) source system using PDB, populating the (local) target system database using WP PHP API functions.
+Developed with [Phel](https://phel-lang.org/) (functional Lisp-family language compiling to PHP), see also [wp-phel-plugin](https://github.com/jasalt/phel-wp-plugin) repository for more info.
+
+# Usage
+
+When installed, plugin registers new WP-CLI command `wp migrate-memberships`.
+
+Command "pulls" customer data via MySQL connection from (remote) source system using PDB, populating the (local) target system database using WP PHP API functions. Source system customer data is read over MySQL connection and new user accounts are created on target system the software is running. Accounts that already exist on target are skipped.
+
+Relevant customer data including password is imported with whitelisted `wp_usermeta` keys. Additional `legacy_user_id` usermeta is added to migrated users on target with source system's User ID.
 
 Following variables are required for PDO connection and need to be set in `wp-config.php`:
 
 ```php
 // WooCommerce Memberships migration config
-define('SOURCE_MYSQL_HOST', '123');
+define('SOURCE_MYSQL_HOST', '123.234.345.456');
 define('SOURCE_MYSQL_USER', 'asdf');
 define('SOURCE_MYSQL_PASSWORD', 'asdf');
 define('SOURCE_MYSQL_DB_NAME', 'asdf');
@@ -21,17 +26,6 @@ define('SOURCE_MYSQL_DB_PREFIX', 'asdf_');
 define('SOURCE_MYSQL_DB_CHARSET', 'asdf');
 define('SOURCE_MYSQL_DB_COLLATION', 'asdf');
 ```
-
-## User account importing
-
-Source system customer data is read over MySQL connection and new user accounts are created on target system the software is running.
-Accounts that already exist on target are skipped.
-
-Relevant customer data including password is imported with whitelisted `wp_usermeta` keys.
-
-Additional `legacy_user_id` usermeta is added to migrated users on target with source system's User ID.
-
-## User membership importing
 
 Matching membership plans must be created beforehand manually on new site and membership plan ID mapping is defined in `wp-config.php`:
 
@@ -49,7 +43,11 @@ define('MEMBERSHIP_PLAN_MIGRATION_MAPPING',
 
 Each user membership (`wc_user_membership` CPT) with active status (`wcm-active` post status) is read from source database and re-created on target. Additional `legacy_plan_id` postmeta is added to migrated user memberships with source system's membership plan ID.
 
-# WooCommerce Memberships database schema notes
+Certain use-case specific variables and logic is hardcoded so customizing `src/main.phel` might be required for making it work optimally.
+
+# Developer information
+
+## WooCommerce Memberships database schema notes
 
 CPT `wc_membership_plan` parent post defines the membership plan with columns:
 - `ID` defining membership plan ID
